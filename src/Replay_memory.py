@@ -149,6 +149,27 @@ class Replay_memory_prioritized(object):
 
     def print_tree(self):
         self.tree.print_tree()    
-            
+
+
+class Replay_memory_distributed(object):
+    def __init__(self, capacity):
+        self.capacity = capacity # soft limit
+        pass
+
+    def save(self):
+        pass
+
+    def sample(self):
+        pass
+
+    def save_memory(self, size):
+        pass
+
+    def load_memory(self, name):
+        pass
+
+    def __len__(self):
+        pass
+
         
         

@@ -15,7 +15,7 @@ import torch.optim as optim
 from .toric_model import Toric_code
 from .toric_model import Action
 from .toric_model import Perspective
-from .Replay_memory import Replay_memory_uniform, Replay_memory_prioritized
+from .Replay_memory import Replay_memory_uniform, Replay_memory_prioritized, Replay_memory_distributed
 # import networks 
 from NN import NN_11, NN_17
 from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
@@ -43,6 +43,9 @@ class RL():
             self.memory = Replay_memory_prioritized(replay_memory_capacity, 0.6) # alpha
         elif self.replay_memory == 'uniform':
             self.memory = Replay_memory_uniform(replay_memory_capacity)
+        elif self.replay_memory == 'distributed':
+            #self.replay_memory = Replay_memory_distributed()
+            raise ValueError('Not yet implemented')
         else:
             raise ValueError('Invalid memory type, please use only proportional or uniform.')
         # Network
@@ -405,6 +408,12 @@ class RL():
         data_all = []
         data_all = np.zeros((1, 19))
 
+        # TODO: Create Learner thread
+        # TODO: Create Actor threads
+
+        # TODO: Let threads run until completion
+        # TODO: Evaluate final results
+
         for i in range(epochs):
             self.train(training_steps=training_steps,
                     target_update=target_update,
@@ -432,3 +441,127 @@ class RL():
             self.save_network(PATH)
             
         return error_corrected_list
+
+    # def actor(self, train_steps, buffer_size, epsilon):
+    #     local_buffer = []
+    #     # update Network params
+    #     # init env
+    #     # for t in train_steps
+    #     #   select action
+    #     #   transition_tuple = env.step(action)
+    #     #   localbuffer.add(transition_tuple)
+    #     #
+    #     #   if local_buffer.size() > buffer_size():
+    #     #       p = computePriorities(local_buffer)
+    #     #       sendToGlobalBuffer(zip(local_buffer, p))
+    #     #   
+    #     #   if timeToUpdateNetwork:
+    #     #       update Network params
+    
+
+    # def learner(self, train_steps):
+    #     pass
+    #     # init Network params
+    #     # for t in train_steps:
+    #         # id, T = sample batch from global buffer
+    #         # l = compute loss
+    #         # update network params
+    #         # compute priorities
+    #         # set priorites
+    #         # cut replay mem to soft size 
+    #     # periodically evaluate network
+            
+
+        
+    def actor(self, training_steps=int, target_update=int, epsilon_start=1.0, num_of_epsilon_steps=10, 
+            epsilon_end=0.1, reach_final_epsilon=0.5, optimizer=str,
+            batch_size=int, replay_start_size=int, minimum_nbr_of_qubit_errors=0):
+            # set network to train mode
+            self.policy_net.train()
+            # define criterion and optimizer
+            criterion = nn.MSELoss(reduction='none')
+            if optimizer == 'RMSprop':
+                optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)
+            elif optimizer == 'Adam':    
+                optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+
+            # init counters
+            # TODO: Update network params
+            # TODO: Push to replay mem counter
+            steps_counter = 0
+            update_counter = 1
+            iteration = 0
+
+            # TODO: Create local buffer (array)
+
+            # define epsilon steps 
+            epsilon = epsilon_start
+            num_of_steps = np.round(training_steps/num_of_epsilon_steps)
+            epsilon_decay = np.round((epsilon_start-epsilon_end)/num_of_epsilon_steps, 5)
+            epsilon_update = num_of_steps * reach_final_epsilon
+
+            # main loop over training steps 
+            while iteration < training_steps:
+                steps_per_episode = 0
+                # initialize syndrom
+                self.toric = Toric_code(self.system_size)
+
+                # -----------------------------
+                # TODO: Move to env.reset()
+                terminal_state = 0
+                # generate syndroms
+                while terminal_state == 0:
+                    if minimum_nbr_of_qubit_errors == 0:
+                        self.toric.generate_random_error(self.p_error)
+                    else:
+                        self.toric.generate_n_random_errors(minimum_nbr_of_qubit_errors)
+                    terminal_state = self.toric.terminal_state(self.toric.current_state)
+                # -----------------------------
+                
+                # solve one episode
+                while terminal_state == 1 and steps_per_episode < self.max_nbr_actions_per_episode and iteration < training_steps:
+                    steps_per_episode += 1
+                    num_of_epsilon_steps += 1
+                    steps_counter += 1
+                    iteration += 1
+
+                    # select action using epsilon greedy policy
+                    action = self.select_action(number_of_actions=self.number_of_actions,
+                                                epsilon=epsilon, 
+                                                grid_shift=self.grid_shift)
+
+                    self.toric.step(action) # TODO: next_state, reward, terminal_state, info = env.step(action)
+                    reward = self.get_reward() # TODO: remove
+
+
+                    # generate memory entry
+                    perspective, action_memory, reward, next_perspective, terminal = self.toric.generate_memory_entry(
+                        action, reward, self.grid_shift)  
+
+                    # TODO: push to local buffer
+                    # save transition in memory
+                    self.memory.save(Transition(perspective, action_memory, reward, next_perspective, terminal), 10000) # max priority
+
+                    # TODO: Remove
+                    # experience replay
+                    if steps_counter > replay_start_size:
+                        update_counter += 1
+                        self.experience_replay(criterion,
+                                                optimizer,
+                                                batch_size)
+                    
+                    # TODO: Issue update request
+                    # set target_net to policy_net
+                    if update_counter % target_update == 0:
+                        self.target_net = deepcopy(self.policy_net)
+
+                    # update epsilon
+                    if (update_counter % epsilon_update == 0):
+                        epsilon = np.round(np.maximum(epsilon - epsilon_decay, epsilon_end), 3)
+                    
+                    # TODO: Check if time to push replay buffer
+                        # TODO: Calculate priorites
+
+                    # set next_state to new state and update terminal state
+                    self.toric.current_state = self.toric.next_state
+                    terminal_state = self.toric.terminal_state(self.toric.current_state) # TODO: Remove

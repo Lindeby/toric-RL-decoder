@@ -44,6 +44,7 @@ rl = RL(Network=NETWORK,
         device=device,
         replay_memory='proportional')   # proportional  
                                         # uniform
+                                        # TODO: distributed
 
 
 # generate folder structure 
