@@ -11,6 +11,8 @@ import heapq
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributed as dist
+from torch.multiprocessing import Process, SimpleQueue
 # import from other files
 from .toric_model import Toric_code
 from .toric_model import Action
@@ -197,6 +199,7 @@ class RL():
             # initialize syndrom
             self.toric = Toric_code(self.system_size)
             terminal_state = 0
+            
             # generate syndroms
             while terminal_state == 0:
                 if minimum_nbr_of_qubit_errors == 0:
@@ -204,6 +207,7 @@ class RL():
                 else:
                     self.toric.generate_n_random_errors(minimum_nbr_of_qubit_errors)
                 terminal_state = self.toric.terminal_state(self.toric.current_state)
+                
             # solve one episode
             while terminal_state == 1 and num_of_steps_per_episode < self.max_nbr_actions_per_episode and iteration < training_steps:
                 num_of_steps_per_episode += 1
@@ -458,19 +462,43 @@ class RL():
     #     #   if timeToUpdateNetwork:
     #     #       update Network params
     
+    def init_threads(self):
+        """***Temporary name**** Starts the learner and the requested number of actors
+        """
+        pass
 
-    # def learner(self, train_steps):
-    #     pass
-    #     # init Network params
-    #     # for t in train_steps:
-    #         # id, T = sample batch from global buffer
-    #         # l = compute loss
-    #         # update network params
-    #         # compute priorities
-    #         # set priorites
-    #         # cut replay mem to soft size 
-    #     # periodically evaluate network
-            
+    def learner(self, world_size, train_steps, replay_queue, network_queue):
+        """The learner in a distributed RL setting. Updates the network params, pushes
+        new network params to actors. Additionally, this function collects the transitions
+        in the queue from the actors and manages the replay buffer.
+        """
+
+        # init replay memory
+        # replay_memory = Replay_memory_distributed()
+
+        # init counter
+        # cnt_push_new_weights = 0
+
+        # TODO: init network weights
+
+        # dist.broadcast(tensor=network_weights, src=rank) # BROADCAST network weights to actors, synchronized call
+
+        # TODO
+        # for t in train_steps:
+            # id, T = sample batch from global buffer
+            # l = compute loss
+            # update network params
+            # compute priorities
+            # set priorites
+            # while not replay_queue.empty():
+                # transitions = replay_queue.get()
+                # manage transition and insert into replay memory
+            # cut replay mem to soft size 
+            # cnt_push_new_weights += 1
+            # if cnt_push_new_weights % n == 0:
+                # TODO: Find solution to push weights weights here
+
+            # periodically evaluate network
 
         
     def actor(self, training_steps=int, target_update=int, epsilon_start=1.0, num_of_epsilon_steps=10, 
@@ -486,7 +514,8 @@ class RL():
                 optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 
             # init counters
-            # TODO: Update network params
+            # weights = torch.tensor()
+            #dist.broadcast(tensor=weights, src=0) # TODO: Listen to BROADCAST for network network params, synchronized call
             # TODO: Push to replay mem counter
             steps_counter = 0
             update_counter = 1

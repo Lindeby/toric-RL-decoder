@@ -165,7 +165,7 @@ class Toric_code():
         rot_state = np.stack((rot_vertex_matrix, rot_plaquette_matrix), axis=0)
         return rot_state
 
-
+    # Should not be here
     def generate_perspective(self, grid_shift, state):
         def mod(index, shift):
             index = (index + shift) % self.system_size 
@@ -196,6 +196,7 @@ class Toric_code():
         return perspectives
 
 
+    # Should not be here
     def generate_memory_entry(self, action, reward, grid_shift):
         def shift_state(row, col):
             perspective = np.roll(self.current_state, grid_shift-row, axis=1)
