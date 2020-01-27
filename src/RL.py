@@ -506,13 +506,13 @@ class RL():
 
         
     def actor(self, 
-            training_steps=int, 
-            target_update=int,
-            epsilon = float, 
-            optimizer=str,
-            batch_size=int, 
-            replay_start_size=int, 
-            minimum_nbr_of_qubit_errors=0):
+            training_steps=int,                 # timesteps
+            max_nrb_actions_per_episode = int,  # max number of timesteps/episode
+            update_policy = int,                # timesteps until update local policy net
+            epsilon = float,                    # gready epsilon choise 
+            optimizer=str,                      # RMSprop or Adam
+            local_memory_buffer = int,          # Size of local memory buffer
+            minimum_nbr_of_qubit_errors=0):     # Minimum numbers of eror generated for each episode 
             
             # set network to train mode
             self.policy_net.train()
@@ -545,9 +545,8 @@ class RL():
                 notDone = True
                 
                 # solve one episode
-                while notDone and steps_per_episode < self.max_nbr_actions_per_episode 
+                while notDone and steps_per_episode < max_nbr_actions_per_episode 
                     steps_per_episode += 1
-                    num_of_epsilon_steps += 1
                     steps_counter += 1
                     iteration += 1
 
@@ -573,7 +572,7 @@ class RL():
                     
                     # TODO: Issue update request
                     # set target_net to policy_net
-                    if update_counter % target_update == 0:
+                    if update_counter % update_policy == 0:
                         #TODO: update local policy net with weights form learner
 
                     # TODO: Check if time to push replay buffer
