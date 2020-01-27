@@ -9,7 +9,7 @@ Transition = namedtuple('Transition',
                         ['state', 'action', 'reward', 'next_state', 'terminal'])
 
 
-class Replay_memory_uniform(object):
+class UniformReplayMemory(object):
 
     def __init__(self, capacity): # alpha is not in use 
         self.capacity = capacity
@@ -42,7 +42,7 @@ class Replay_memory_uniform(object):
         return len(self.memory)
 
 
-class Replay_memory_prioritized(object):
+class PrioritizedReplayMemory(object):
     """ The class represents prioritized experience replay buffer.
 
     The class has functions: store samples, pick samples with 
@@ -151,25 +151,10 @@ class Replay_memory_prioritized(object):
         self.tree.print_tree()    
 
 
-class Replay_memory_distributed(object):
-    def __init__(self, capacity):
-        self.capacity = capacity # soft limit
+class DistributedReplayMemory(PrioritizedReplayMemory):
+    def __init__(self, memory_size, alpha):
         pass
 
-    def save(self):
-        pass
-
-    def sample(self):
-        pass
-
-    def save_memory(self, size):
-        pass
-
-    def load_memory(self, name):
-        pass
-
-    def __len__(self):
-        pass
 
         
         
