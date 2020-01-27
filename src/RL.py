@@ -14,10 +14,14 @@ import torch.optim as optim
 import torch.distributed as dist
 from torch.multiprocessing import Process, SimpleQueue
 # import from other files
-from .toric_model import Toric_code
-from .toric_model import Action
-from .toric_model import Perspective
+#toric_model shuld not be used any more
+#from .toric_model import Toric_code
+#from .toric_model import Action
+#from .toric_model import Perspective
 from .Replay_memory import Replay_memory_uniform, Replay_memory_prioritized, Replay_memory_distributed
+# import gym and toric-code enviroment
+import gym
+import gym_ToricCode
 # import networks 
 from NN import NN_11, NN_17
 from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
@@ -501,11 +505,18 @@ class RL():
             # periodically evaluate network
 
         
-    def actor(self, training_steps=int, target_update=int, epsilon_start=1.0, num_of_epsilon_steps=10, 
-            epsilon_end=0.1, reach_final_epsilon=0.5, optimizer=str,
-            batch_size=int, replay_start_size=int, minimum_nbr_of_qubit_errors=0):
+    def actor(self, 
+            training_steps=int, 
+            target_update=int,
+            epsilon = float, 
+            optimizer=str,
+            batch_size=int, 
+            replay_start_size=int, 
+            minimum_nbr_of_qubit_errors=0):
+            
             # set network to train mode
             self.policy_net.train()
+
             # define criterion and optimizer
             criterion = nn.MSELoss(reduction='none')
             if optimizer == 'RMSprop':
@@ -513,42 +524,28 @@ class RL():
             elif optimizer == 'Adam':    
                 optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 
-            # init counters
             # weights = torch.tensor()
             #dist.broadcast(tensor=weights, src=0) # TODO: Listen to BROADCAST for network network params, synchronized call
             # TODO: Push to replay mem counter
+            
+            # init counters
             steps_counter = 0
             update_counter = 1
             iteration = 0
 
             # TODO: Create local buffer (array)
 
-            # define epsilon steps 
-            epsilon = epsilon_start
-            num_of_steps = np.round(training_steps/num_of_epsilon_steps)
-            epsilon_decay = np.round((epsilon_start-epsilon_end)/num_of_epsilon_steps, 5)
-            epsilon_update = num_of_steps * reach_final_epsilon
-
+            # Create enviroment
+            env = gym.make('toric-code-v0')    
+            
             # main loop over training steps 
             while iteration < training_steps:
                 steps_per_episode = 0
-                # initialize syndrom
-                self.toric = Toric_code(self.system_size)
-
-                # -----------------------------
-                # TODO: Move to env.reset()
-                terminal_state = 0
-                # generate syndroms
-                while terminal_state == 0:
-                    if minimum_nbr_of_qubit_errors == 0:
-                        self.toric.generate_random_error(self.p_error)
-                    else:
-                        self.toric.generate_n_random_errors(minimum_nbr_of_qubit_errors)
-                    terminal_state = self.toric.terminal_state(self.toric.current_state)
-                # -----------------------------
+                env.reset()
+                notDone = True
                 
                 # solve one episode
-                while terminal_state == 1 and steps_per_episode < self.max_nbr_actions_per_episode and iteration < training_steps:
+                while notDone and steps_per_episode < self.max_nbr_actions_per_episode 
                     steps_per_episode += 1
                     num_of_epsilon_steps += 1
                     steps_counter += 1
@@ -559,11 +556,13 @@ class RL():
                                                 epsilon=epsilon, 
                                                 grid_shift=self.grid_shift)
 
-                    self.toric.step(action) # TODO: next_state, reward, terminal_state, info = env.step(action)
-                    reward = self.get_reward() # TODO: remove
+                    state, reward, done, _ = env.step(action)
 
+                    if done:
+                        notDone = False
 
                     # generate memory entry
+                    # TODO: move code from toricmodel for memory genreation, change what is nesesary 
                     perspective, action_memory, reward, next_perspective, terminal = self.toric.generate_memory_entry(
                         action, reward, self.grid_shift)  
 
@@ -571,26 +570,12 @@ class RL():
                     # save transition in memory
                     self.memory.save(Transition(perspective, action_memory, reward, next_perspective, terminal), 10000) # max priority
 
-                    # TODO: Remove
-                    # experience replay
-                    if steps_counter > replay_start_size:
-                        update_counter += 1
-                        self.experience_replay(criterion,
-                                                optimizer,
-                                                batch_size)
                     
                     # TODO: Issue update request
                     # set target_net to policy_net
                     if update_counter % target_update == 0:
-                        self.target_net = deepcopy(self.policy_net)
+                        #TODO: update local policy net with weights form learner
 
-                    # update epsilon
-                    if (update_counter % epsilon_update == 0):
-                        epsilon = np.round(np.maximum(epsilon - epsilon_decay, epsilon_end), 3)
-                    
                     # TODO: Check if time to push replay buffer
                         # TODO: Calculate priorites
 
-                    # set next_state to new state and update terminal state
-                    self.toric.current_state = self.toric.next_state
-                    terminal_state = self.toric.terminal_state(self.toric.current_state) # TODO: Remove
