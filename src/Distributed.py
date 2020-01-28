@@ -1,13 +1,24 @@
 # standard libraries
 from copy import deepcopy
-
+from collections import namedtuple
 from .ReplayMemory import PrioritizedReplayMemory
 from .util import Transition, Action
 # pytorch
+from torch import from_numpy
 import torch.distributed as dist
 from torch.multiprocessing import Process, SimpleQueue
 
+
 class Distributed():
+    
+    Perspective = namedtuple('Perspective', ['perspective', 'position'])
+    Transition = namedtuple('Transition',['previous_state', 
+                                          'action', 
+                                          'reward', 
+                                          'state', 
+                                          'terminal']) 
+    
+    
     def __init__(self, policy_net, target_net, optimizer, env, replay_memory="proportional"):
 
         self.env = env
@@ -17,10 +28,10 @@ class Distributed():
         self.target_net = target_net
 
         if replay_memory == "proportional":
-            self.replay_memory = PrioritizedReplayMemory(100) # TODO: temp size
+            self.replay_memory = PrioritizedReplayMemory(100, 0.6) # TODO: temp size, alpha
 
 
-    def train(train_steps, no_actors, learning_rate, epsilon, batch_size, policy_update):
+    def train(train_steps, no_actors, learning_rate, epsilons, batch_size, policy_update):
         size = no_actors +1
         processes = []
 
@@ -28,7 +39,7 @@ class Distributed():
         weight_queue = SimpleQueue()
         transition_queue = SimpleQueue()
         
-        args = {"no_actors":5, "train_steps":train_steps, "batch_size":batch_size,
+        args = {"no_actors": no_actors, "train_steps":train_steps, "batch_size":batch_size,
                 "optimizer":self.optimizer, "model": self.policy_net, "learning_rate":learning_rate,
                 "policy_update":policy_update, "replay_memory":self.replay_memory}
         learner_process = Process(target=_init_process, args=(0, size, _learner, weight_queue,
@@ -37,10 +48,18 @@ class Distributed():
         processes.append(learner_process)
 
 
-        args = {"train_steps": train_steps, "max_actions_per_episode":0, "update_policy":policy_update
-                "epsilon":epsilon, "size_local_buffer":50, "min_qubit_errors":0, "model":deepcopy(self.policy_net),
+        args = {"train_steps": train_steps, 
+                "max_actions_per_episode":0, 
+                "update_policy":policy_update,
+                "size_local_memory_buffer":50, 
+                "min_qubit_errors":0, 
+                "model":deepcopy(self.policy_net),
                 "env":self.env}
+    
         for rank in range(no_actors):
+            # a = new Actor()
+            # a.run
+            args["epsilon"] = epsilons[rank]
             actor_process = Process(target=_init_process, args=(rank+1, size, actor, weight_queue,
                                                                 transition_queue, args))
             actor_process.start()
@@ -115,8 +134,10 @@ class Distributed():
             # periodically evaluate network
 
                 
-    def _actor(self, rank, world_size, weight_queue, transition_queue, args):     # Minimum numbers of eror generated for each episode 
+    def _actor(self, rank, world_size, weight_queue, transition_queue, args):
             
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
             # set network to eval mode
             model = args["model"]
             model.eval()
@@ -133,17 +154,18 @@ class Distributed():
             update_counter = 1
             # iteration = 0
 
-            # local buffer to store transitions before sending
-            local_buffer = []   
-            
+            # local buffer of fixed size to store transitions before sending
+            local_buffer = [None] * args["size_local_memory_buffer"]   
+            local_memory_index = 0
+
             # main loop over training steps 
             for iteration in range(args["train_steps"]):
                 steps_per_episode = 0
-                env.reset()
+                state = env.reset()
                 terminal_state = False
                 
                 # solve one episode
-                while not terminal_state and steps_per_episode < args["max_actions_per_episodes"] 
+                while (not terminal_state and steps_per_episode < args["max_actions_per_episodes"]): 
                     steps_per_episode += 1
                     steps_counter += 1
                     
@@ -152,21 +174,32 @@ class Distributed():
                     # ---------------------------------------------------
 
                     # select action using epsilon greedy policy
+                    previous_state = state
                     action = self.select_action(number_of_actions=no_actions,
                                                 epsilon=epsilon, 
-                                                grid_shift=self.grid_shift)
+                                                grid_shift=self.grid_shift,
+                                                toric_size = env.system_size,
+                                                state = state,
+                                                model = model,
+                                                device = device)
 
                     state, reward, terminal_state, _ = env.step(action)
 
 
-                    # generate memory entry
-                    # TODO: move code from toricmodel for memory genreation, change what is nesesary 
-                    perspective, action_memory, reward, next_perspective, terminal = self.toric.generate_memory_entry(
-                        action, reward, self.grid_shift)  
 
-                    # TODO: push to local buffer
-                    # save transition in memory
-                    self.memory.save(Transition(perspective, action_memory, reward, next_perspective, terminal), 10000) # max priority
+                    # generate transition to stor in local memory buffer
+                    transition = generateTransition(action,
+                                                     reward,
+                                                     self.grid_shift, # self.gridshift???
+                                                     previous_state,
+                                                     state,
+                                                     terminal_state)
+                                                     
+                    local_buffer.insert(local_memory_index, transition)
+                    if (local_memory_index % len(local_buffer)):
+                        #TODO send buffer to learner
+                        local_memory_index = 0
+                    
 
                     # set target_net to policy_net
                     if not weight_queue.empty():
@@ -191,6 +224,7 @@ class Distributed():
                 return tensor.to(device)
 
             # get transitions and unpack them to minibatch
+            # TODO: We want weights outside of the function
             transitions, weights, indices = replay_memory(batch_size, 0.4) # TODO: either self.replay memory or replay memory provided
             mini_batch = Transition(*zip(*transitions))
 
@@ -212,21 +246,186 @@ class Distributed():
 
             return batch_state, batch_actions, batch_reward, batch_next_state
 
-            
+        # Move to learner
         batch_state, batch_actions, batch_reward, batch_next_state = getBatches(batch_size)
 
         # compute policy net output
-        policy_output = update_policy(batch_state)#self.policy_net(batch_state) # TODO: implement update policy
-        policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)    
+        policy_output = self.predict(self.policy_net, batch_state, batch_size, action_index=batch_actions)
+        policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
-        # compute target network output 
-        target_output = self.get_target_network_output(batch_next_state, batch_size)    # TODO: implement get_target_network_output
-        target_output = target_output.to(device)#target_output.to(self.device)
-        y = batch_reward + (batch_terminal * discount_factor * target_output) #batch_reward + (batch_terminal * self.discount_factor * target_output)
+        # compute target network output
+        target_output = self.predict(self.target_net, batch_next_state, batch_size)
+        target_output = target_output.to(self.device)
+        # TODO: Ask about batch_terminal
+        y = batch_reward + (batch_terminal * self.discount_factor * target_output) # TODO: self.discount_factor or provide arg
         # compute loss and update replay memory
-        loss = self.get_loss(criterion, optimizer, y, policy_output, weights, indices)
+        loss = self.getLoss(criterion, optimizer, y, policy_output, weights, indices)
         # backpropagate loss
         loss.backward()
         optimizer.step()
 
-    
+
+    def getLoss(self, criterion, optimizer, y, output, weights, indices):
+        loss = criterion(y, output)
+        optimizer.zero_grad()
+        # for prioritized experience replay
+        if self.replay_memory == 'proportional': # TODO: self.replay_memory or provide arg
+            tensor = from_numpy(np.array(weights))
+            tensor = tensor.type('torch.Tensor')
+            loss = tensor * loss.cpu() # TODO: Move to gpu
+            priorities = torch.Tensor(loss, requires_grad=False)
+            priorities = np.absolute(priorities.detach().numpy())
+            self.memory.priority_update(indices, priorities)
+        return loss.mean()
+
+    def predict(self, net, batch_state, batch_size):
+        """
+        Params
+        -------
+        action_index: If the q value of the performed action is requested, 
+        provide the chosen action index
+        """
+        net.eval()
+
+        # Create containers
+        batch_output = np.zeros(batch_size)
+        batch_perspectives = np.zeros(shape=(batch_size, 2, self.system_size, self.system_size)) # TODO: either self.system_size or provide arg
+        batch_actions = np.zeros(batch_size)
+
+        for i in range(batch_size):
+            if (batch_state[i].cpu().sum().item() == 0):
+                batch_perspectives[i,:,:,:] = np.zeros(shape=(2, self.system_size, self.system_size))
+            else:
+                # Generate perspectives
+                perspectives = generatePerspective(self.grid_shift, self.system_size, batch_state[i].cpu()) # TODO: either self.grid_shift or provide arg
+                perspectives = Perspective(*zip(*perspectives))
+                perspectives = np.array(perspectives.perspective)
+                perspectives = from_numpy(perspectives)
+                perspectives = tensor.type('torch.Tensor')
+                perspectives = perspectives.to(self.device) # TODO either self.device or provide arg
+
+                # prediction
+                with torch.no_grad():
+                    output = net(perspectives)
+                    q_values = np.array(output.cpu())
+                    row, col = np.where(q_values == np.max(q_values))
+                    batch_output[i] = q_values[row[0], col[0]]      
+
+                #perspective = perspectives[row[0]]
+                #perspective = np.array(perspective.cpu())
+                #batch_perspectives[i,:,:,:] = perspective
+                #batch_actions[i] = col[0]
+
+        batch_output = convert_from_np_to_tensor(batch_output)
+        #batch_perspectives = convert_from_np_to_tensor(batch_perspectives)
+        return batch_output#, batch_perspectives, batch_actions
+
+
+    def select_action(self, 
+                      number_of_actions, 
+                      epsilon, 
+                      grid_shift,
+                      toric_size,
+                      state, 
+                      model,
+                      device):
+        # set network in evluation mode 
+        model.eval()
+        # generate perspectives 
+        perspectives = self.generatePerspective(grid_shift, toric_size, state)
+        number_of_perspectives = len(perspectives)
+        # preprocess batch of perspectives and actions 
+        perspectives = Perspective(*zip(*perspectives))
+        batch_perspectives = np.array(perspectives.perspective)
+        batch_perspectives = convert_from_np_to_tensor(batch_perspectives)
+        batch_perspectives = batch_perspectives.to(device)
+        batch_position_actions = perspectives.position
+        #choose action using epsilon greedy approach
+        rand = random.random()
+        if(1 - epsilon > rand):
+            # select greedy action 
+            with torch.no_grad():        
+                policy_net_output = model(batch_perspectives)
+                q_values_table = np.array(policy_net_output.cpu())
+                row, col = np.where(q_values_table == np.max(q_values_table))
+                perspective = row[0]
+                max_q_action = col[0] + 1
+                action = self.env.Action(batch_position_actions[perspective], max_q_action)
+        # select random action
+        else:
+            random_perspective = random.randint(0, number_of_perspectives-1)
+            random_action = random.randint(1, number_of_actions)
+            action = self.env.Action(batch_position_actions[random_perspective], random_action)  
+
+        return action    
+        
+
+    def generatePerspective(self, grid_shift, toric_size, state):
+        def mod(index, shift):
+            index = (index + shift) % toric_size 
+            return index
+        perspectives = []
+        vertex_matrix = state[0,:,:]
+        plaquette_matrix = state[1,:,:]
+        # qubit matrix 0
+        for i in range(toric_size):
+            for j in range(toric_size):
+                if vertex_matrix[i, j] == 1 or vertex_matrix[mod(i, 1), j] == 1 or \
+                plaquette_matrix[i, j] == 1 or plaquette_matrix[i, mod(j, -1)] == 1:
+                    new_state = np.roll(state, grid_shift-i, axis=1)
+                    new_state = np.roll(new_state, grid_shift-j, axis=2)
+                    temp = Perspective(new_state, (0,i,j))
+                    perspectives.append(temp)
+        # qubit matrix 1
+        for i in range(toric_size):
+            for j in range(toric_size):
+                if vertex_matrix[i,j] == 1 or vertex_matrix[i, mod(j, 1)] == 1 or \
+                plaquette_matrix[i,j] == 1 or plaquette_matrix[mod(i, -1), j] == 1:
+                    new_state = np.roll(state, grid_shift-i, axis=1)
+                    new_state = np.roll(new_state, grid_shift-j, axis=2)
+                    new_state = self.rotate_state(new_state) # rotate perspective clock wise
+                    temp = Perspective(new_state, (1,i,j))
+                    perspectives.append(temp)
+        
+        return perspectives
+
+    def generateTransition(self, 
+                            action, 
+                            reward, 
+                            grid_shift,       
+                            previous_state,   #   Previous state before action
+                            state,            #   Current state    
+                            terminal_state    #   True/False
+                            ):
+        
+
+        qubit_matrix = action.position[0]
+        row = action.position[1]
+        col = action.position[2]
+        add_operator = action.action
+        if qubit_matrix == 0:
+            previous_perspective, perspective = shift_state(row, col, previous_state, state)
+            action = Action((0, grid_shift, grid_shift), add_operator)
+        elif qubit_matrix == 1:
+            previous_perspective, perspective = shift_state(row, col)
+            previous_perspective = self.rotate_state(previous_perspective)
+            perspective = self.rotate_state(perspective)
+            action = Action((1, grid_shift, grid_shift), add_operator)
+        return Transition(previous_perspective, action, reward, perspective, terminal_state)
+
+    def rotate_state(self, state):
+         vertex_matrix = state[0,:,:]
+         plaquette_matrix = state[1,:,:]
+         rot_plaquette_matrix = np.rot90(plaquette_matrix)
+         rot_vertex_matrix = np.rot90(vertex_matrix)
+         rot_vertex_matrix = np.roll(rot_vertex_matrix, 1, axis=0)
+         rot_state = np.stack((rot_vertex_matrix, rot_plaquette_matrix), axis=0)
+         return rot_state 
+
+        
+    def shift_state(row, col, previous_state, state):
+         previous_perspective = np.roll(previous_state, grid_shift-row, axis=1)
+         previous_perspective = np.roll(previous_perspective, grid_shift-col, axis=2)
+         perspective = np.roll(state, grid_shift-row, axis=1)
+         perspective = np.roll(perspective, grid_shift-col, axis=2)
+         return previous_perspective, perspective

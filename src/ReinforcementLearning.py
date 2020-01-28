@@ -101,7 +101,7 @@ class ReinforcementLearning():
         batch_reward = convert_from_np_to_tensor(np.array(mini_batch.reward))
         batch_reward = batch_reward.to(device)#batch_reward.to(self.device)
         # compute policy net output
-        output = update_policy(batch_state)#self.policy_net(batch_state)
+        output = self.policy_net(batch_state)
         output = output.gather(1, batch_actions.view(-1, 1)).squeeze(1)    
         # compute target network output 
         target_output = self.get_target_network_output(batch_next_state, batch_size)
@@ -166,7 +166,7 @@ class ReinforcementLearning():
         with torch.no_grad():
             action_index = np.full(shape=(batch_size), fill_value=None)
             target_output,_,_ = self.get_network_output_next_state(batch_next_state=batch_next_state, 
-                                                                        batch_size=batch_size, 
+                                                                        batch_size=batch_size,
                                                                         action_index=action_index)
         return target_output
 
