@@ -2,8 +2,7 @@
 from copy import deepcopy
 
 from .ReplayMemory import PrioritizedReplayMemory
-
-
+from .util import Transition, Action
 # pytorch
 import torch.distributed as dist
 from torch.multiprocessing import Process, SimpleQueue
@@ -175,3 +174,59 @@ class Distributed():
                         vector_to_parameters(w, model.parameters())
 
                     # TODO: check if transitions should be pushed
+
+
+
+    def experience_replay(self, criterion, optimizer, batch_size, target_model, policy_model, replay_memory, device, discount_factor):
+        policy_model.train()# self.policy_net.train()
+        target_model.eval()# self.target_net.eval()
+
+        def getBatches(batch_size):
+
+            def toNetInput(batch, device):
+                batch_input = np.stack(batch, axis=0) # not sure if it does anything
+                # from np to tensor
+                tensor = from_numpy(batch_input)
+                tensor = tensor.type('torch.Tensor')
+                return tensor.to(device)
+
+            # get transitions and unpack them to minibatch
+            transitions, weights, indices = replay_memory(batch_size, 0.4) # TODO: either self.replay memory or replay memory provided
+            mini_batch = Transition(*zip(*transitions))
+
+            # preprocess batch_input and batch_target_input for the network
+            batch_state = toNetInput(mini_batch.state, self.device) # TODO: either self.device or device provided
+            batch_next_state = toNetInput(mini_batch.next_state, self.device)
+
+            # unpack action batch
+            batch_actions = Action(*zip(*mini_batch.action))
+            batch_actions = np.array(batch_actions.action) - 1
+            batch_actions = torch.Tensor(batch_actions).long()
+            batch_actions = batch_actions.to(self.device) 
+
+            # preprocess batch_terminal and batch reward
+            batch_terminal = convert_from_np_to_tensor(np.array(mini_batch.terminal)) 
+            batch_terminal = batch_terminal.to(self.device)
+            batch_reward = convert_from_np_to_tensor(np.array(mini_batch.reward))
+            batch_reward = batch_reward.to(self.device)
+
+            return batch_state, batch_actions, batch_reward, batch_next_state
+
+            
+        batch_state, batch_actions, batch_reward, batch_next_state = getBatches(batch_size)
+
+        # compute policy net output
+        policy_output = update_policy(batch_state)#self.policy_net(batch_state) # TODO: implement update policy
+        policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)    
+
+        # compute target network output 
+        target_output = self.get_target_network_output(batch_next_state, batch_size)    # TODO: implement get_target_network_output
+        target_output = target_output.to(device)#target_output.to(self.device)
+        y = batch_reward + (batch_terminal * discount_factor * target_output) #batch_reward + (batch_terminal * self.discount_factor * target_output)
+        # compute loss and update replay memory
+        loss = self.get_loss(criterion, optimizer, y, policy_output, weights, indices)
+        # backpropagate loss
+        loss.backward()
+        optimizer.step()
+
+    
