@@ -22,14 +22,14 @@ SYSTEM_SIZE = 3
 MIN_QBIT_ERRORS = 0
 P_ERROR = 0.1
 
-toric_enviroment = gym.make('toric-code-v0')
-toric_enviroment.__init__(size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
+toric_enviroment = gym.make('toric-code-v0', size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
+# toric_enviroment.__init__(size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
 dl = Distributed(policy_net = NETWORK,
                  target_net = deepcopy(NETWORK),
                  optimizer  = 'Adam',
                  env = toric_enviroment,
                  replay_memory = 'proportional'
-                 );
+                 )
 
 #epsilons = [0.1, 0.5]
 #
