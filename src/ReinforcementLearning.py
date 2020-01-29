@@ -23,7 +23,6 @@ from NN import NN_11, NN_17
 from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 from .util import incremental_mean, convert_from_np_to_tensor, Transition
 
-
 class ReinforcementLearning():
     def __init__(self, Network, Network_name, system_size=int, p_error=0.1, replay_memory_capacity=int, learning_rate=0.00025,
                 discount_factor=0.95, number_of_actions=3, max_nbr_actions_per_episode=50, device='cpu', replay_memory='uniform'):
@@ -82,8 +81,8 @@ class ReinforcementLearning():
 
 
     def experience_replay(self, criterion, optimizer, batch_size, target_model, policy_model, replay_memory, device, discount_factor):
-        policy_model.train()# self.policy_net.train()
-        target_model.eval()# self.target_net.eval()
+        self.policy_net.train()
+        self.target_net.eval()
         # get transitions and unpack them to minibatch
         transitions, weights, indices = replay_memory(batch_size, 0.4)#self.memory.sample(batch_size, 0.4) # beta parameter 
         mini_batch = Transition(*zip(*transitions))
