@@ -156,7 +156,7 @@ class Distributed():
             policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
             # compute target network output
-            target_output = self.predict(self.target_net, batch_next_state, batch_size)
+            target_output = self.predict(target_net, batch_next_state, batch_size)
             target_output = target_output.to(device)
             
             # compute loss and update replay memory
@@ -182,8 +182,7 @@ class Distributed():
 
             # periodically evaluate network
 
-
-
+   
     def getLoss(self, criterion, optimizer, y, output, weights, indices):
         loss = criterion(y, output)
         optimizer.zero_grad()
