@@ -2,7 +2,7 @@ import numpy
 from collections import namedtuple
 import random
 import _pickle as cPickle
-from .sum_tree import Sum_tree
+from .SumTree import SumTree
 
 
 Transition = namedtuple('Transition',
@@ -60,15 +60,12 @@ class PrioritizedReplayMemory(object):
         ----------
         memory_size : int
             sample size to be stored
-        batch_size : int
-            batch size to be selected by `select` method
         alpha: float
             exponent determine how much prioritization.
             Prob_i \sim priority_i**alpha/sum(priority**alpha)
         """
-        self.tree = Sum_tree(memory_size)
+        self.tree = SumTree(memory_size)
         self.memory_size = memory_size
-        #self.batch_size = batch_size
         self.alpha = alpha
 
     def save(self, data, priority):
@@ -108,7 +105,8 @@ class PrioritizedReplayMemory(object):
         indices = []
         weights = []
         priorities = []
-        for _ in range(batch_size):
+        sample_range = 1/batch_size
+        for i in range(batch_size):
             r = random.random()
             data, priority, index = self.tree.find(r)
             priorities.append(priority)
@@ -150,11 +148,4 @@ class PrioritizedReplayMemory(object):
     def print_tree(self):
         self.tree.print_tree()    
 
-
-class DistributedReplayMemory(PrioritizedReplayMemory):
-    def __init__(self, memory_size, alpha):
-        pass
-
-
-        
         

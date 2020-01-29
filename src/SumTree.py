@@ -4,7 +4,7 @@ import sys
 import os
 import math
 
-class Sum_tree(object):
+class SumTree(object):
     def __init__(self, max_size):
         self.max_size = max_size
         self.tree_level = math.ceil(math.log(max_size+1, 2))+1
@@ -63,7 +63,7 @@ class Sum_tree(object):
         return self.size
 
 if __name__ == '__main__':
-    s = Sum_tree(10)
+    s = SumTree(10)
     for i in range(20):
         s.add(2**i, i)
     s.print_tree()

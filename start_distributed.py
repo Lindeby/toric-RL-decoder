@@ -1,7 +1,7 @@
 from copy import deepcopy
 from src.Distributed import Distributed
-import gym, gym_ToricCode
-
+from src.ToricCodeEnv import ToricCodeEnv
+import gym, torch
 
 from NN import NN_11, NN_17
 from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
@@ -14,7 +14,8 @@ from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 #   ResNet50
 #   ResNet101
 #   ResNet152
-NETWORK = NN_17
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # common system sizes are 3,5,7 and 9 
 # grid size must be odd! 
@@ -22,22 +23,30 @@ SYSTEM_SIZE = 3
 MIN_QBIT_ERRORS = 0
 P_ERROR = 0.1
 
-toric_enviroment = gym.make('toric-code-v0', size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
-# toric_enviroment.__init__(size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
+NETWORK = NN_17(SYSTEM_SIZE, 3, 'cpu')
+
+#gym.make('toric-code-v0', size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
+toric_enviroment = ToricCodeEnv(SYSTEM_SIZE, MIN_QBIT_ERRORS, P_ERROR)
+
 dl = Distributed(policy_net = NETWORK,
                  target_net = deepcopy(NETWORK),
+                 device = device,
                  optimizer  = 'Adam',
-                 env = toric_enviroment,
-                 replay_memory = 'proportional'
+                 replay_size= 100,
+                 alpha = 0.6,
+                 env = toric_enviroment
                  )
 
-#epsilons = [0.1, 0.5]
-#
-#dl.train(training_steps = 50,
-#         no_actors = 2,
-#         learning_rate = 0.00025,
-#         batch_size = 64,
-#         policy_update = 100)
+epsilons = [0.1]
+
+dl.train(training_steps = 50,
+        no_actors = 1,
+        learning_rate = 0.00025,
+        epsilons = epsilons,
+        batch_size = 16,
+        policy_update = 100,
+        discount_factor = 0.9)
+
 
 
 
