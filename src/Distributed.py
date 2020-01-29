@@ -195,10 +195,9 @@ class Distributed():
                                                      
                     local_buffer.insert(local_memory_index, transition)
                     if (local_memory_index % len(local_buffer)):
-                        #TODO send buffer to learner
+                        transition_queue.put(deepcopy(local_buffer)) 
                         local_memory_index = 0
                     
-
                     # set target_net to policy_net
                     if not weight_queue.empty():
                         w = weight_queue.get()[0]
