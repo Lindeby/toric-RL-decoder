@@ -3,8 +3,8 @@ from src.Distributed import Distributed
 from gym_ToricCode import gym_ToricCode 
 import gym, torch
 
-from NN import NN_11, NN_17
-from ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
+from src.nn.torch.NN import NN_11, NN_17
+from src.nn.torch.ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
 # valid network names: 
 #   NN_11

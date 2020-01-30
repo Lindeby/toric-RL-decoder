@@ -1,4 +1,5 @@
 Pipfile
+Pipfile.lock
 playground.py
 playground2.py
 .vscode

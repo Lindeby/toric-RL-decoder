@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from src.util import conv_to_fully_connected, pad_circular
+from .util import conv_to_fully_connected, pad_circular
 
 
 # neural network CNN with one fully connected layer
