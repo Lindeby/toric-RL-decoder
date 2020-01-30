@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
 
+from torch.nn.utils import parameters_to_vector, vector_to_parameters
+
+
 def learner(rank, world_size, weight_queue, transition_queue, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
     new network params to actors. Additionally, this function collects the transitions
@@ -23,7 +26,6 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
             "discount_factor"}
     """
 
-    print("learner: hej")
     device = args["device"]
     replay_memory = args["replay_memory"]
 
@@ -72,12 +74,13 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
     
-    print("learner: before broadcast")
-    # Broadcast initial weights to actors
-    group = dist.new_group([x for x in range(world_size)])
-    weights = parameters_to_vector(model.parameters())
-    dist.broadcast(tensor=weights, src=rank, group=group) 
-    print("lerner: after broadcast")
+
+    # Push initial network params
+    weights = parameters_to_vector(policy_net.parameters())
+    for actor in range(world_size-1):
+        weight_queue.put([weights.detach()])
+
+
     # Wait until replay memory has enough transitions for one batch
     while len(replay_memory) < 16:
         if not transition_queue.empty():
@@ -116,7 +119,7 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
 
         push_new_weights += 1
         if push_new_weights % args["policy_update"] == 0:
-            weights = parameters_to_vector(policy.parameters())
+            weights = parameters_to_vector(policy_net.parameters())
             for actor in range(world_size-1):
                 weight_queue.put([weights.detach()])
 

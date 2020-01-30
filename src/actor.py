@@ -1,9 +1,11 @@
 import torch
 import torch.distributed as dist
 
+from torch.nn.utils import parameters_to_vector, vector_to_parameters
+
+
 def actor(rank, world_size, weight_queue, transition_queue, args):
         
-        print("actor_",rank,": hej")       
         device = args["device"]
     
         # set network to eval mode
@@ -12,15 +14,13 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
 
         env = args["env"]
         
-        #while True: continue
+        # Get initial network params
+        weights = None
+        while weights == None:
+            if not weight_queue.empty():
+                weights = weight_queue.get()[0]
 
-        # Init network params
-        weights = torch.zeros(1)
-        
-        print("actor_",rank,": start receive")       
-        dist.broadcast(tensor=weights, src=0)
-        
-        print("actor_",rank,": end receive")       
+        # load weights
         vector_to_parameters(weights, model.parameters())
         
         # init counters
@@ -51,7 +51,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
                                         model = model,
                                         device = device)
 
-            state, reward, terminal_state, _ = env.step(action)
+            state, reward, terminal_state, _ = env.step([action.position[0], action.position[1], action.position[2], action.action])
 
             # generate transition to stor in local memory buffer
             transition = generateTransition(action,
