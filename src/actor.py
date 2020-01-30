@@ -1,8 +1,9 @@
 import torch
-
+import torch.distributed as dist
 
 def actor(rank, world_size, weight_queue, transition_queue, args):
         
+        print("actor_",rank,": hej")       
         device = args["device"]
     
         # set network to eval mode
@@ -11,11 +12,15 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
 
         env = args["env"]
         
-        while True: continue
+        #while True: continue
 
         # Init network params
         weights = torch.zeros(1)
+        
+        print("actor_",rank,": start receive")       
         dist.broadcast(tensor=weights, src=0)
+        
+        print("actor_",rank,": end receive")       
         vector_to_parameters(weights, model.parameters())
         
         # init counters

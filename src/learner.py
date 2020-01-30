@@ -22,6 +22,8 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
             "replay_memory",
             "discount_factor"}
     """
+
+    print("learner: hej")
     device = args["device"]
     replay_memory = args["replay_memory"]
 
@@ -69,12 +71,13 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
         optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
-
+    
+    print("learner: before broadcast")
     # Broadcast initial weights to actors
     group = dist.new_group([x for x in range(world_size)])
     weights = parameters_to_vector(model.parameters())
     dist.broadcast(tensor=weights, src=rank, group=group) 
-
+    print("lerner: after broadcast")
     # Wait until replay memory has enough transitions for one batch
     while len(replay_memory) < 16:
         if not transition_queue.empty():
@@ -83,7 +86,7 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
 
     # Start training
     for t in range(train_steps):
-
+        print("learner: traning step: ",t," / ",train_steps)
         # Move to learner
         batch_state, batch_actions, batch_reward, batch_next_state , weights, indices = getBatches(batch_size)
 

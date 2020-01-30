@@ -38,7 +38,7 @@ class Distributed():
 
 
     def train(self, training_steps, no_actors, learning_rate, epsilons, batch_size, policy_update, discount_factor):
-
+        print("start training")
         world_size = no_actors +1
         processes = []
 
@@ -60,7 +60,9 @@ class Distributed():
 
                 }
         learner_process = Process(target=self._init_process, args=(0, world_size, learner, weight_queue,
-                                                            transition_queue, args))
+                                                                   transition_queue, args))
+
+        print("starting learner thread")
         learner_process.start()
         processes.append(learner_process)
 
@@ -79,11 +81,14 @@ class Distributed():
             args["epsilon"] = epsilons[rank]
             actor_process = Process(target=self._init_process, args=(rank+1, world_size, actor, weight_queue,
                                                                 transition_queue, args))
+
             actor_process.start()
+            print("starting actor ",(rank + 1))
             processes.append(actor_process)
 
         for p in processes:
             p.join()
+            print(p, "joined")
 
     def _init_process(self, rank, size, fn, wq, tq, args, backend='gloo'):
         """ Initialize the distributed environment. """
