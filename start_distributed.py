@@ -1,6 +1,6 @@
 from copy import deepcopy
 from src.Distributed import Distributed
-from src.ToricCodeEnv import ToricCodeEnv
+from gym_ToricCode import gym_ToricCode 
 import gym, torch
 
 from NN import NN_11, NN_17

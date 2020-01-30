@@ -1,0 +1,3 @@
+[submodule "gym-toric-code"]
+	path = gym-toric-code
+	url = https://github.com/Lindeby/gym-toric-code.git
