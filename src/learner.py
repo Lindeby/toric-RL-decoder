@@ -1,5 +1,7 @@
 import torch
-
+import torch.nn as nn
+import torch.optim as optim
+import torch.distributed as dist
 
 def learner(rank, world_size, weight_queue, transition_queue, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
@@ -7,6 +9,19 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     in the queue from the actors and manages the replay buffer.
     """
 
+    """ 
+    args = {"no_actors",
+            "train_steps",
+            "batch_size",
+            "optimizer",
+            "policy_net",
+            "target_net",
+            "learning_rate",
+            "device",
+            "policy_update",
+            "replay_memory",
+            "discount_factor"}
+    """
     device = args["device"]
     replay_memory = args["replay_memory"]
 
@@ -51,12 +66,12 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
     if args["optimizer"] == 'RMSprop':
-        optimizer = optim.RMSprop(model.parameters(), lr=args["learning_rate"])
+        optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
-        optimizer = optim.Adam(model.parameters(), lr=args["learning_rate"])
+        optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
     # Broadcast initial weights to actors
-    group = dist.new_group([x for x in range(args["world_size"])])
+    group = dist.new_group([x for x in range(world_size)])
     weights = parameters_to_vector(model.parameters())
     dist.broadcast(tensor=weights, src=rank, group=group) 
 
