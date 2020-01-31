@@ -3,7 +3,6 @@ import os
 from copy import deepcopy
 from collections import namedtuple
 from .ReplayMemory import PrioritizedReplayMemory
-from .util import Transition, Action
 # pytorch
 from torch import from_numpy
 import torch.distributed as dist
@@ -15,7 +14,6 @@ from .actor import actor
 
 class Distributed():
     
-    Perspective = namedtuple('Perspective', ['perspective', 'position'])
     Transition = namedtuple('Transition',['previous_state', 
                                           'action', 
                                           'reward', 
@@ -35,7 +33,7 @@ class Distributed():
         self.target_net = self.target_net.to(self.device)
 
         self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) # TODO: temp size, alpha
-
+        
 
     def train(self, training_steps, no_actors, learning_rate, epsilons, batch_size, policy_update, discount_factor):
         print("start training")
