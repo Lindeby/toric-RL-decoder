@@ -3,7 +3,6 @@ import os
 from copy import deepcopy
 from collections import namedtuple
 from .ReplayMemory import PrioritizedReplayMemory
-from .util import Transition, Action
 # pytorch
 from torch import from_numpy
 import torch.distributed as dist

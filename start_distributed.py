@@ -1,7 +1,8 @@
 from copy import deepcopy
 from src.Distributed import Distributed
-from gym_ToricCode import gym_ToricCode 
+#from gym_ToricCode import gym_ToricCode 
 import gym, torch
+import gym_ToricCode
 
 from src.nn.torch.NN import NN_11, NN_17
 from src.nn.torch.ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
@@ -25,8 +26,13 @@ P_ERROR = 0.1
 
 NETWORK = NN_17(SYSTEM_SIZE, 3, 'cpu')
 
+config = {"size": SYSTEM_SIZE,
+          "min_qubit_errors": MIN_QBIT_ERRORS,
+          "p_error": P_ERROR}
+
+toric_enviroment = gym.make('toric-code-v0', config = config)
 #gym.make('toric-code-v0', size = SYSTEM_SIZE, min_qbit_errors = MIN_QBIT_ERRORS, p_error = P_ERROR)
-toric_enviroment = ToricCodeEnv(SYSTEM_SIZE, MIN_QBIT_ERRORS, P_ERROR)
+#toric_enviroment = ToricCodeEnv(SYSTEM_SIZE, MIN_QBIT_ERRORS, P_ERROR)
 
 dl = Distributed(policy_net = NETWORK,
                  target_net = deepcopy(NETWORK),
