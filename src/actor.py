@@ -6,7 +6,11 @@ from collections import namedtuple
 from torch import from_numpy
 import random
 
+
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
+Action = namedtuple('Action', ['position', 'action'])
+Transition = namedtuple('Transition',
+                        ['state', 'action', 'reward', 'next_state', 'terminal'])
 
 def actor(rank, world_size, weight_queue, transition_queue, args):
     
@@ -65,10 +69,8 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
         previous_state = state
-
-        # select action using epsilon greedy policy
-
         
+        # select action using epsilon greedy policy
         print("actor_",rank,": call select action") 
         action = select_action(number_of_actions=no_actions,
                                     epsilon=args["epsilon"], 
@@ -81,7 +83,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         
         print("actor_",rank,": Done selecting action") 
         state, reward, terminal_state, _ = env.step([action.position[0], action.position[1], action.position[2], action.action])
-
+        print("done with step")
         print("actor_",rank,": step with action: ",action) 
 
         # generate transition to stor in local memory buffer
@@ -99,15 +101,14 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             local_memory_index = 0
 
         # if new weights are available, update network
-        if not weight_queue.empty():
-            w = weight_queue.get()[0]
-            vector_to_parameters(w, model.parameters())
-
-        if terminal_state or steps_per_episode > args["max_actions_per_episodes"]:
-                state = env.reset()
-                steps_per_episode = 0
-                terminal_state = False
-
+        #if not weight_queue.empty():
+        #    w = weight_queue.get()[0]
+        #    vector_to_parameters(w, model.parameters())
+        
+        if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
+            state = env.reset()
+            steps_per_episode = 0
+            terminal_state = False
             
 
 def select_action(number_of_actions, epsilon, grid_shift,
@@ -117,7 +118,9 @@ def select_action(number_of_actions, epsilon, grid_shift,
     # generate perspectives 
     perspectives = generatePerspective(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
-    # preprocess batch of perspectives and actions 
+    # preprocess batch of perspectives and actions
+
+    print(perspectives) 
     perspectives = Perspective(*zip(*perspectives))
     batch_perspectives = np.array(perspectives.perspective)
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
@@ -130,7 +133,9 @@ def select_action(number_of_actions, epsilon, grid_shift,
     if(1 - epsilon > rand):
         print("actor_: select greedy") 
         # select greedy action 
-        with torch.no_grad():        
+        with torch.no_grad():
+            print(model)
+            #convert batch_perspectives from numpy to tensor? maby error? 
             policy_net_output = model(batch_perspectives)
             print("actor_: select greedy: output from model") 
             q_values_table = np.array(policy_net_output.cpu())
@@ -143,7 +148,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
         print("actor_: select random") 
         random_perspective = random.randint(0, number_of_perspectives-1)
         random_action = random.randint(1, number_of_actions)
-        action = env.Action(batch_position_actions[random_perspective], random_action)  
+        action = Action(batch_position_actions[random_perspective], random_action)  
 
     return action    
     
@@ -191,10 +196,10 @@ def generateTransition( action,
     col = action.position[2]
     add_operator = action.action
     if qubit_matrix == 0:
-        previous_perspective, perspective = shift_state(row, col, previous_state, state)
+        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
         action = Action((0, grid_shift, grid_shift), add_operator)
     elif qubit_matrix == 1:
-        previous_perspective, perspective = shift_state(row, col)
+        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
         previous_perspective = rotate_state(previous_perspective)
         perspective = rotate_state(perspective)
         action = Action((1, grid_shift, grid_shift), add_operator)
@@ -210,7 +215,7 @@ def rotate_state(state):
         return rot_state 
 
     
-def shift_state(row, col, previous_state, state):
+def shift_state(row, col, previous_state, state, grid_shift):
         previous_perspective = np.roll(previous_state, grid_shift-row, axis=1)
         previous_perspective = np.roll(previous_perspective, grid_shift-col, axis=2)
         perspective = np.roll(state, grid_shift-row, axis=1)

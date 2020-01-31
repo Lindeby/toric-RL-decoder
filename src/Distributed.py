@@ -66,7 +66,7 @@ class Distributed():
 
 
         args = {"train_steps": training_steps, 
-                "max_actions_per_episode":0, 
+                "max_actions_per_episode":5, 
                 "update_policy":policy_update,
                 "size_local_memory_buffer":50, 
                 "min_qubit_errors":0, 
