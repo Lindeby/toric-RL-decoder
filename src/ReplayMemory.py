@@ -148,4 +148,5 @@ class PrioritizedReplayMemory(object):
     def print_tree(self):
         self.tree.print_tree()    
 
-        
+    def filled_size(self):
+        return self.tree.filled_size()      
