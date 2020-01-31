@@ -9,7 +9,8 @@ import random
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
 
 def actor(rank, world_size, weight_queue, transition_queue, args):
-        
+    
+    print("actor_",rank,": Hello") 
     """ 
     args = {"train_steps", 
             "max_actions_per_episode", 
@@ -54,23 +55,34 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     state = env.reset()
     steps_per_episode = 0
     terminal_state = False
-
+   
+         
+    print("actor_",rank,": Starting exploration") 
     # main loop over training steps 
     for iteration in range(args["train_steps"]):
+        
+        print("actor_",rank,": iteration: ",iteration) 
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
         previous_state = state
 
         # select action using epsilon greedy policy
+
+        
+        print("actor_",rank,": call select action") 
         action = select_action(number_of_actions=no_actions,
                                     epsilon=args["epsilon"], 
                                     grid_shift=grid_shift,
                                     toric_size = env.system_size,
                                     state = state,
                                     model = model,
-                                    device = device)
-
+                                    device = device,
+                                    env = env)
+        
+        print("actor_",rank,": Done selecting action") 
         state, reward, terminal_state, _ = env.step([action.position[0], action.position[1], action.position[2], action.action])
+
+        print("actor_",rank,": step with action: ",action) 
 
         # generate transition to stor in local memory buffer
         transition = generateTransition(action,
@@ -99,7 +111,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             
 
 def select_action(number_of_actions, epsilon, grid_shift,
-                    toric_size, state, model,device):
+                    toric_size, state, model, device, env):
     # set network in evluation mode 
     model.eval()
     # generate perspectives 
@@ -111,12 +123,16 @@ def select_action(number_of_actions, epsilon, grid_shift,
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
+    
+    print("actor_: done batch perspectives") 
     #choose action using epsilon greedy approach
     rand = random.random()
     if(1 - epsilon > rand):
+        print("actor_: select greedy") 
         # select greedy action 
         with torch.no_grad():        
             policy_net_output = model(batch_perspectives)
+            print("actor_: select greedy: output from model") 
             q_values_table = np.array(policy_net_output.cpu())
             row, col = np.where(q_values_table == np.max(q_values_table))
             perspective = row[0]
@@ -124,6 +140,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
             action = env.Action(batch_position_actions[perspective], max_q_action)
     # select random action
     else:
+        print("actor_: select random") 
         random_perspective = random.randint(0, number_of_perspectives-1)
         random_action = random.randint(1, number_of_actions)
         action = env.Action(batch_position_actions[random_perspective], random_action)  
