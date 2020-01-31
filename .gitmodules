@@ -1,0 +1,3 @@
+[submodule "gym_ToricCode"]
+	path = gym_ToricCode
+	url = https://github.com/Lindeby/gym_ToricCode.git
