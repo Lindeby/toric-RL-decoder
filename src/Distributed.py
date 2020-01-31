@@ -14,7 +14,6 @@ from .actor import actor
 
 class Distributed():
     
-    Perspective = namedtuple('Perspective', ['perspective', 'position'])
     Transition = namedtuple('Transition',['previous_state', 
                                           'action', 
                                           'reward', 
