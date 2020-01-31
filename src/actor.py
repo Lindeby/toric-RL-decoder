@@ -5,7 +5,21 @@ from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
 
 def actor(rank, world_size, weight_queue, transition_queue, args):
-        
+
+
+        """ 
+        args = {"train_steps", 
+                "max_actions_per_episode", 
+                "update_policy",
+                "size_local_memory_buffer", 
+                "min_qubit_errors", 
+                "model",
+                "env",
+                "device",
+                "epsilon"
+                }
+        """
+         
         device = args["device"]
     
         # set network to eval mode
@@ -13,6 +27,8 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         model.eval()
 
         env = args["env"]
+        #TODO: no_actions shuld come from env.action_space
+        no_actions = 3
         
         # Get initial network params
         weights = None
@@ -43,8 +59,8 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             previous_state = state
 
             # select action using epsilon greedy policy
-            action = self.select_action(number_of_actions=no_actions,
-                                        epsilon=epsilon, 
+            action = select_action(number_of_actions=no_actions,
+                                        epsilon=args["epsilon"], 
                                         grid_shift=self.grid_shift,
                                         toric_size = env.system_size,
                                         state = state,
