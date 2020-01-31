@@ -3,7 +3,6 @@ Pipfile.lock
 playground.py
 playground2.py
 .vscode
-gym_ToricCode/
 gym_ToricCode/.gitignore
 gym_ToricCode/Pipfile
 gym_ToricCode/Pipfile.lock
