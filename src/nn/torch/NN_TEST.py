@@ -30,34 +30,34 @@ class NN_TEST_11(TorchModelV2, nn.Module):
         self.conv9 = nn.Conv2d(80, 73 , kernel_size=3, stride=1, padding=1)
         self.conv10 = nn.Conv2d(73, 71 , kernel_size=3, stride=1, padding=1)
         self.conv11 = nn.Conv2d(71, 64, kernel_size=3, stride=1)
-        output_from_conv = conv_to_fully_connected(obs_space[1], 3, 0, 1) # hardcoded system size
+        output_from_conv = conv_to_fully_connected(obs_space.shape[1], 3, 0, 1) # hardcoded system size
         self.linear1 = nn.Linear(64*int(output_from_conv)**2, 3)
-        # self.device = device
 
     @override(TorchModelV2)
-    def forward(self, x):
+    def forward(self, input_dict, s, seq_lens):
+        state = input_dict["obs"]
         def pad_circular(x, pad):
             x = torch.cat([x, x[:,:,:,0:pad]], dim=3)
             x = torch.cat([x, x[:,:, 0:pad,:]], dim=2)
             x = torch.cat([x[:,:,:,-2 * pad:-pad], x], dim=3)
             x = torch.cat([x[:,:, -2 * pad:-pad,:], x], dim=2)
             return x
-        x = pad_circular(x, 1)
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x))
-        x = F.relu(self.conv5(x))
-        x = F.relu(self.conv6(x))
-        x = F.relu(self.conv7(x))
-        x = F.relu(self.conv8(x))
-        x = F.relu(self.conv9(x))
-        x = F.relu(self.conv10(x))
-        x = F.relu(self.conv11(x))
-        n_features = np.prod(x.size()[1:])
-        x = x.view(-1, n_features)
-        x = self.linear1(x)
-        return x
+        state = pad_circular(state, 1)
+        state = F.relu(self.conv1(state))
+        state = F.relu(self.conv2(state))
+        state = F.relu(self.conv3(state))
+        state = F.relu(self.conv4(state))
+        state = F.relu(self.conv5(state))
+        state = F.relu(self.conv6(state))
+        state = F.relu(self.conv7(state))
+        state = F.relu(self.conv8(state))
+        state = F.relu(self.conv9(state))
+        state = F.relu(self.conv10(state))
+        state = F.relu(self.conv11(state))
+        n_features = np.prod(state.size()[1:])
+        state = state.view(-1, n_features)
+        output = self.linear1(state)
+        return (output, s)
 
     # TODO: Look into this
     def value_function(self):
