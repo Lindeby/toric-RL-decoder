@@ -134,7 +134,8 @@ def select_action(number_of_actions, epsilon, grid_shift,
         print("actor_: select greedy") 
         # select greedy action 
         with torch.no_grad():
-            print(model) 
+            print(model)
+            #convert batch_perspectives from numpy to tensor? maby error? 
             policy_net_output = model(batch_perspectives)
             print("actor_: select greedy: output from model") 
             q_values_table = np.array(policy_net_output.cpu())
