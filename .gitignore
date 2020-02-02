@@ -8,3 +8,6 @@ gym_ToricCode/Pipfile
 gym_ToricCode/Pipfile.lock
 gym_ToricCode/test.py
 pg.py
+actor_verify_script.py
+src/testing.py
+logs/*

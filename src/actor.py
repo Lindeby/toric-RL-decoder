@@ -35,9 +35,10 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     model.eval()
     
     env = args["env"]
-    #TODO: no_actions shuld come from env.action_space
-    no_actions = 3
+
+    no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
+    
     # Get initial network params
     weights = None
     while weights == None:
@@ -82,14 +83,14 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
                                     env = env)
         
         print("actor_",rank,": Done selecting action") 
-        state, reward, terminal_state, _ = env.step([action.position[0], action.position[1], action.position[2], action.action])
+        state, reward, terminal_state, _ = env.step(action)
         print("done with step")
         print("actor_",rank,": step with action: ",action) 
 
         # generate transition to stor in local memory buffer
         transition = generateTransition(action,
                                             reward,
-                                            grid_shift, # self.gridshift???
+                                            grid_shift,
                                             previous_state,
                                             state,
                                             terminal_state)
@@ -142,14 +143,19 @@ def select_action(number_of_actions, epsilon, grid_shift,
             row, col = np.where(q_values_table == np.max(q_values_table))
             perspective = row[0]
             max_q_action = col[0] + 1
-            action = env.Action(batch_position_actions[perspective], max_q_action)
+            action = [  batch_position_actions[perspective][0],
+                        batch_position_actions[perspective][1],
+                        batch_position_actions[perspective][2],
+                        max_q_action]
     # select random action
     else:
         print("actor_: select random") 
         random_perspective = random.randint(0, number_of_perspectives-1)
         random_action = random.randint(1, number_of_actions)
-        action = Action(batch_position_actions[random_perspective], random_action)  
-
+        action = [  batch_position_actions[random_perspective][0],
+                    batch_position_actions[random_perspective][1],
+                    batch_position_actions[random_perspective][2],
+                    random_action]
     return action    
     
 
@@ -191,10 +197,10 @@ def generateTransition( action,
                         ):
     
 
-    qubit_matrix = action.position[0]
-    row = action.position[1]
-    col = action.position[2]
-    add_operator = action.action
+    qubit_matrix = action[0]
+    row = action[1]
+    col = action[2]
+    add_operator = action[3]
     if qubit_matrix == 0:
         previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
         action = Action((0, grid_shift, grid_shift), add_operator)

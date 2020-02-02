@@ -76,7 +76,7 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     
 
     # Push initial network params
-    weights = parameters_to_vector(policy_net.parameters())
+    weights = parameters_to_vector(policy_net.parameters()) # TODO: See if state_dict() can be used instead
     for actor in range(world_size-1):
         weight_queue.put([weights.detach()])
 

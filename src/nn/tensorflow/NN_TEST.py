@@ -1,13 +1,13 @@
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Conv2D, Dense
 from ray.rllib.models.tf.tf_modelv2 import TFModelV2
-
+import tensorflow as tf
 
 class NN_11(TFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         super(NN_11, self).__init__(obs_space, action_space, num_outputs, model_config, name)
         model = Sequential()
-        model.add(Conv2D(input_shape=(model_config['input_size'], model_config['input_size'], 2), data_format='channels_last', filters=128 ,kernel_size=3, strides=1, padding='same', use_bias=True))
+        model.add(Conv2D(input_shape=(obs_space.shape[1], obs_space.shape[1], 2), data_format='channels_last', filters=128 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=128 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=120 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=111 ,kernel_size=3, strides=1, padding='same', use_bias=True))
@@ -18,10 +18,11 @@ class NN_11(TFModelV2):
         model.add(Conv2D(filters=73  ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=71  ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=64  ,kernel_size=3, strides=1, padding='valid',use_bias=True))
-        model.add(Dense(3))
+        model.add(Dense(num_outputs))
         self.base_model = model
         self.register_variables(self.base_model.variables)
-
+    
+    # @tf.function
     def forward(self, input_dict, state, seq_lens):
         """Call the model with the given input tensors and state.
         Any complex observations (dicts, tuples, etc.) will be unpacked by
@@ -49,7 +50,11 @@ class NN_11(TFModelV2):
                 model_out, self._value_out = self.base_model(input_dict["obs"])
                 return model_out, state
         """
-        model_out, self._value_out = self.base_model(input_dict['obs'])
+        s = tf.transpose(input_dict['obs'], perm=[0,2,3,1]) # NCHW not supported on cpu, transpose fo NHWC
+
+        model_out, self._value_out = self.base_model(s)
+        # model_out, self._value_out = self.base_model(state)
+        
         return model_out, state
 
     def value_function(self):
@@ -66,7 +71,7 @@ class NN_17(TFModelV2):
     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
         super(NN_17, self).__init__(obs_space, action_space, num_outputs, model_config, name)
         model = Sequential()
-        model.add(Conv2D(input_shape=(model_config['input_size'], model_config['input_size'], 2), data_format='channels_last', filters=256 ,kernel_size=3, strides=1, padding='same', use_bias=True))
+        model.add(Conv2D(input_shape=(obs_space[1], obs_space[1], 2), data_format='channels_last', filters=256 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=256 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=251 ,kernel_size=3, strides=1, padding='same', use_bias=True))
         model.add(Conv2D(filters=250 ,kernel_size=3, strides=1, padding='same', use_bias=True))
