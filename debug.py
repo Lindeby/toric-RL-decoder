@@ -30,6 +30,7 @@ def worker(rank, size, args):
 
     else:
         weights = None
+        time.sleep(2)
         while True:
             if not q.empty():
                 weights = q.get()

@@ -6,6 +6,8 @@ from collections import namedtuple
 from torch import from_numpy
 import random
 
+from src.nn.torch.NN import NN_17
+
 
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
 Action = namedtuple('Action', ['position', 'action'])
@@ -41,15 +43,14 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     
     # Get initial network params
     weights = None
-    while True:
+    while weights == None:
         if not weight_queue.empty():
             weights = weight_queue.get()
-            break
 
     # load weights
-    # vector_to_parameters(weights, model.parameters())
-    model.load_state_dict(weights)
-    
+    vector_to_parameters(weights, model.parameters())
+    # model.load_state_dict(weights)
+
     # init counters
     steps_counter = 0
     update_counter = 1
@@ -62,7 +63,25 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     state = env.reset()
     steps_per_episode = 0
     terminal_state = False
-    
+
+    ## debug
+
+    perspectives = generatePerspective(1,3, state)
+    perspectives = Perspective(*zip(*perspectives))
+    batch_perspectives = np.array(perspectives.perspective)
+    batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
+    batch_perspectives = batch_perspectives.to('cpu')
+    model_debug = NN_17(3,3,'cpu')
+
+    print("Starting prediction...")
+    with torch.no_grad():
+        policy_net_output = model_debug.forward(batch_perspectives)
+        print(policy_net_output)
+
+
+    #### end debug
+
+   
          
     print("actor_",rank,": Starting exploration") 
     # main loop over training steps 
@@ -140,8 +159,8 @@ def select_action(number_of_actions, epsilon, grid_shift,
     
     print("actor_: done batch perspectives")
 
-    for p in model.parameters():
-        print(p)
+    # for p in model.parameters():
+    #     print(p)
 
     # Policy
     policy_net_output = None
