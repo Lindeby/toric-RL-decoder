@@ -15,8 +15,6 @@ Transition = namedtuple('Transition',
                         ['state', 'action', 'reward', 'next_state', 'terminal'])
 
 def actor(rank, world_size, weight_queue, transition_queue, args):
-    
-    print("actor_",rank,": Hello") 
     """ 
     args = {"train_steps", 
             "max_actions_per_episode", 
@@ -37,7 +35,6 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     model.eval()
     
     env = args["env"]
-    print(env.action_space.high[-1])
     no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
     
@@ -57,37 +54,19 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     # iteration = 0
 
     # local buffer of fixed size to store transitions before sending
-    local_buffer = [None] * args["size_local_memory_buffer"]   
+    local_buffer = [None] * args["size_local_memory_buffer"]
+    q_value_buffer = [None] * args["size_local_memory_buffer"]
+
     local_memory_index = 0
     
     state = env.reset()
     steps_per_episode = 0
     terminal_state = False
-
-    ## debug
-
-    perspectives = generatePerspective(1,3, state)
-    perspectives = Perspective(*zip(*perspectives))
-    batch_perspectives = np.array(perspectives.perspective)
-    batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
-    batch_perspectives = batch_perspectives.to('cpu')
-    model_debug = NN_17(3,3,'cpu')
-
-    print("Starting prediction...")
-    with torch.no_grad():
-        policy_net_output = model_debug.forward(batch_perspectives)
-        print(policy_net_output)
-
-
-    #### end debug
-
    
-         
-    print("actor_",rank,": Starting exploration") 
     # main loop over training steps 
     for iteration in range(args["train_steps"]):
-        print("actor: it:",iteration)
-        
+        print(iteration)
+
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
         previous_state = state
@@ -112,19 +91,21 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
                                             state,
                                             terminal_state)
 
-        # TODO: Store q_value
-        local_buffer.insert(local_memory_index, transition)
-        local_memory_index += 1
+        local_buffer[local_memory_index] = transition
+        q_value_buffer[local_memory_index] = q_value
 
-        if (local_memory_index % len(local_buffer) == 0):
-            # TODO: Compute priorities
-                # initial priority
+        if (local_memory_index >= (args["size_local_memory_buffer"]-1)):
+            priorities = computePriorities(local_buffer, q_value_buffer, grid_shift, env.system_size, device, model,args["discount_factor"])
+            weights = (1/len(priorities)*1/priorities)**args["beta"]
+            normalized_weights = weights*(1/torch.max(weights))
+            priorities *= normalized_weights
 
-                # weights
-                # normalize weights
-                # priority = weights * initial priority
+            to_send = [*zip(local_buffer, priorities)]
+
             # TODO (Adam) send buffer to learner
             local_memory_index = 0
+        else:
+            local_memory_index += 1
 
         # if new weights are available, update network
         #if not weight_queue.empty():
@@ -152,15 +133,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
-    
-<<<<<<< HEAD
-    print("actor_: done batch perspectives")
-
-    # for p in model.parameters():
-    #     print(p)
-
-=======
->>>>>>> 22c7c27d51108cae34cba1b57a75f1a6feacc0ae
+   
     # Policy
     policy_net_output = None
     q_values_table = None
@@ -172,9 +145,9 @@ def select_action(number_of_actions, epsilon, grid_shift,
     rand = random.random()
     if(1 - epsilon > rand):
         # select greedy action 
-        row, col = np.where(q_values_table == np.max(q_values_table))
-        perspective = row[0]
-        max_q_action = col[0] + 1
+        row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
+        perspective = row
+        max_q_action = col + 1
         action = [  batch_position_actions[perspective][0],
                     batch_position_actions[perspective][1],
                     batch_position_actions[perspective][2],
@@ -189,7 +162,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
                     batch_position_actions[random_perspective][1],
                     batch_position_actions[random_perspective][2],
                     random_action]
-        q_value = [random_perspective, random_action]
+        q_value = q_values_table[random_perspective, random_action-1] # TODO: Find out if -1 is the correct option here.
 
     return action, q_value
     
@@ -223,6 +196,62 @@ def generatePerspective(grid_shift, toric_size, state):
     
     return perspectives
 
+
+def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, device, model, discount_factor):
+    """ Computes the absolute temporal difference value.
+
+    Parameters
+    ==========
+    local_buffer: (list) local transitions from the actor
+    q_value_buffer: (list) q values of taken steps
+    grid_shift: (int) grid shift of the toric code
+    device: (string) cpu/gpu
+    model: (torch.nn) model to compute the q value for the best action
+    discount_factor: (float) discount future rewards
+
+    Returns
+    =======
+    (torch.Tensor) Initial (biased) priorities
+    """
+    def toNetInput(batch, device):
+        batch_input = np.stack(batch, axis=0)
+        # from np to tensor
+        tensor = from_numpy(batch_input)
+        tensor = tensor.type('torch.Tensor')
+        return tensor.to(device)
+    
+    transitions         = Transition(*zip(*local_buffer))
+    next_state_batch    = toNetInput(transitions.next_state, device) 
+    reward_batch        = toNetInput(transitions.reward, device)
+
+    max_q_value_buffer = []
+
+    # TODO: Optimize, for-loop nicht gut
+    for state in next_state_batch:
+        perspectives = generatePerspective(grid_shift, system_size, state)
+
+        perspectives = Perspective(*zip(*perspectives))
+        batch_perspectives = np.array(perspectives.perspective)
+        batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor').to(device)
+
+        with torch.no_grad():
+            output = model(batch_perspectives)
+            q_values_table = np.array(output.cpu())
+            row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape)#np.where(q_values_table == np.max(q_values_table)) 
+            perspective = row
+            max_q_action = col + 1
+            max_q_value = q_values_table[row, col]
+            max_q_value_buffer.append(max_q_value)
+    
+    max_q_value_buffer  = toNetInput(np.array(max_q_value_buffer), device)
+    q_value_buffer      = toNetInput(np.array(q_value_buffer), device)
+    return torch.abs(reward_batch + discount_factor*max_q_value_buffer - q_value_buffer)
+
+
+
+
+
+
 def generateTransition( action, 
                         reward, 
                         grid_shift,       
@@ -245,6 +274,7 @@ def generateTransition( action,
         perspective = rotate_state(perspective)
         action = Action((1, grid_shift, grid_shift), add_operator)
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
+
 
 def rotate_state(state):
         vertex_matrix = state[0,:,:]

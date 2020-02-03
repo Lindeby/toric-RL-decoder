@@ -55,7 +55,6 @@ class Distributed():
                 "policy_update":policy_update,
                 "replay_memory":self.replay_memory,
                 "discount_factor":discount_factor
-
                 }
         learner_process = Process(target=self._init_process, args=(0, world_size, learner, weight_queue,
                                                                    transition_queue, args))
@@ -72,7 +71,9 @@ class Distributed():
                 "min_qubit_errors":0, 
                 "model":self.policy_net,
                 "env":self.env,
-                "device":self.device
+                "device":self.device,
+                "beta": 1,
+                "discount_factor":discount_factor
                 }
     
         for rank in range(no_actors):
