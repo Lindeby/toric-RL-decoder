@@ -1,25 +1,44 @@
-from torch.multiprocessing import Process
-import torch.distributed as dist
-from src.nn.torch.NN import NN_11
-import gym, gym_ToricCode
+from src.nn.torch.NN import NN_11, NN_17
 from collections import namedtuple
 import os
-import numpy as np
-from torch import from_numpy
-import torch
-from src.actor import generatePerspective 
 import time
+import numpy as np
+import torch
+from torch import from_numpy
+import torch.distributed as dist
+from torch.multiprocessing import Process, SimpleQueue
+from torch.nn.utils import parameters_to_vector, vector_to_parameters
+
+from src.actor import generatePerspective 
+import gym, gym_ToricCode
 
 
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
 # https://pytorch.org/docs/stable/notes/multiprocessing.html
 
-def worker(rank, size, model):
+def worker(rank, size, args):
+    model = args["model"]
+    q = args["q"]
 
     if rank == 0:
-        while True: continue
-        # Send weights
+        weights = model.state_dict()
+        for a in range(size-1):
+            q.put(weights)
+            print("Learner put weight in queue {} times.".format(a))
+        
+        time.sleep(2)
+
     else:
+        weights = None
+        while True:
+            if not q.empty():
+                weights = q.get()
+                break
+
+        print("Rank {} loading weights.".format(rank))
+        model.load_state_dict(weights)
+        print("Rank {} loaded weights successfully.".format(rank))
+        
         env = gym.make('toric-code-v0', config={})
         state = env.reset()
 
@@ -37,20 +56,25 @@ def worker(rank, size, model):
 
 
 
-def init_process(rank, size, fn, model, backend='gloo'):
+def init_process(rank, size, fn, args, backend='gloo'):
     """ Initialize the distributed environment. """
     os.environ['MASTER_ADDR'] = '127.0.0.2'
     os.environ['MASTER_PORT'] = '29501'
     dist.init_process_group(backend, rank=rank, world_size=size)
-    fn(rank, size, model)
+    fn(rank, size, args)
 
 
-model = NN_11(3, 3, 'cpu')
+q = SimpleQueue()
+model = NN_17(3, 3, 'cpu')
 
-size = 2
+args = {    "q":q,
+            "model":model
+        }
+
+size = 3
 processes = []
 for i in range(size):
-    p = Process(target=init_process, args=(i, size, worker, model))
+    p = Process(target=init_process, args=(i, size, worker, args))
     processes.append(p)
     p.start()
 

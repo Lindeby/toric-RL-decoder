@@ -76,9 +76,9 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     
 
     # Push initial network params
-    weights = parameters_to_vector(policy_net.parameters()) # TODO: See if state_dict() can be used instead
+    weights = policy_net.state_dict() #parameters_to_vector(policy_net.parameters()) # TODO: See if state_dict() can be used instead
     for actor in range(world_size-1):
-        weight_queue.put([weights.detach()])
+        weight_queue.put(weights)
 
 
     # Wait until replay memory has enough transitions for one batch
@@ -119,9 +119,9 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
 
         push_new_weights += 1
         if push_new_weights % args["policy_update"] == 0:
-            weights = parameters_to_vector(policy_net.parameters())
+            weights = model.state_dict() #parameters_to_vector(policy_net.parameters()) # TODO: See if state_dict() can be used instead
             for actor in range(world_size-1):
-                weight_queue.put([weights.detach()])
+                weight_queue.put(weights)
 
             push_new_weights = 0
 

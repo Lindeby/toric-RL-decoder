@@ -41,12 +41,14 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     
     # Get initial network params
     weights = None
-    while weights == None:
+    while True:
         if not weight_queue.empty():
-            weights = weight_queue.get()[0]
+            weights = weight_queue.get()
+            break
 
     # load weights
-    vector_to_parameters(weights, model.parameters())
+    # vector_to_parameters(weights, model.parameters())
+    model.load_state_dict(weights)
     
     # init counters
     steps_counter = 0
@@ -60,7 +62,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     state = env.reset()
     steps_per_episode = 0
     terminal_state = False
-   
+    
          
     print("actor_",rank,": Starting exploration") 
     # main loop over training steps 
