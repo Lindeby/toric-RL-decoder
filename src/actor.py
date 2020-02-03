@@ -37,7 +37,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     model.eval()
     
     env = args["env"]
-
+    print(env.action_space.high[-1])
     no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
     
@@ -86,14 +86,13 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     print("actor_",rank,": Starting exploration") 
     # main loop over training steps 
     for iteration in range(args["train_steps"]):
+        print("actor: it:",iteration)
         
-        print("actor_",rank,": iteration: ",iteration) 
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
         previous_state = state
         
         # select action using epsilon greedy policy
-        print("actor_",rank,": call select action") 
         action, q_value = select_action(number_of_actions=no_actions,
                                     epsilon=args["epsilon"], 
                                     grid_shift=grid_shift,
@@ -103,10 +102,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
                                     device = device,
                                     env = env)
         
-        print("actor_",rank,": Done selecting action") 
         state, reward, terminal_state, _ = env.step(action)
-        print("done with step")
-        print("actor_",rank,": step with action: ",action) 
 
         # generate transition to stor in local memory buffer
         transition = generateTransition(action,
@@ -120,7 +116,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         local_buffer.insert(local_memory_index, transition)
         local_memory_index += 1
 
-        if (local_memory_index % len(local_buffer)):
+        if (local_memory_index % len(local_buffer) == 0):
             # TODO: Compute priorities
                 # initial priority
 
@@ -150,18 +146,21 @@ def select_action(number_of_actions, epsilon, grid_shift,
     number_of_perspectives = len(perspectives)
     # preprocess batch of perspectives and actions
 
-    print(perspectives) 
+    #print(perspectives) 
     perspectives = Perspective(*zip(*perspectives))
     batch_perspectives = np.array(perspectives.perspective)
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
     
+<<<<<<< HEAD
     print("actor_: done batch perspectives")
 
     # for p in model.parameters():
     #     print(p)
 
+=======
+>>>>>>> 22c7c27d51108cae34cba1b57a75f1a6feacc0ae
     # Policy
     policy_net_output = None
     q_values_table = None
@@ -172,9 +171,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
     #choose action using epsilon greedy approach
     rand = random.random()
     if(1 - epsilon > rand):
-        print("actor_: select greedy") 
         # select greedy action 
-        print("actor_: select greedy: output from model") 
         row, col = np.where(q_values_table == np.max(q_values_table))
         perspective = row[0]
         max_q_action = col[0] + 1
@@ -186,7 +183,6 @@ def select_action(number_of_actions, epsilon, grid_shift,
 
     # select random action
     else:
-        print("actor_: select random")
         random_perspective = random.randint(0, number_of_perspectives-1)
         random_action = random.randint(1, number_of_actions)
         action = [  batch_position_actions[random_perspective][0],
