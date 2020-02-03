@@ -70,7 +70,7 @@ class Distributed():
                 "update_policy":policy_update,
                 "size_local_memory_buffer":50, 
                 "min_qubit_errors":0, 
-                "model":deepcopy(self.policy_net),
+                "model":self.policy_net,
                 "env":self.env,
                 "device":self.device
                 }

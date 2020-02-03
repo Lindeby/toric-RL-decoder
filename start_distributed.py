@@ -35,7 +35,7 @@ toric_enviroment = gym.make('toric-code-v0', config = config)
 #toric_enviroment = ToricCodeEnv(SYSTEM_SIZE, MIN_QBIT_ERRORS, P_ERROR)
 
 dl = Distributed(policy_net = NETWORK,
-                 target_net = deepcopy(NETWORK),
+                 target_net = NETWORK,
                  device = device,
                  optimizer  = 'Adam',
                  replay_size= 100,
