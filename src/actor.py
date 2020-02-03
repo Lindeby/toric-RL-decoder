@@ -73,7 +73,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         
         # select action using epsilon greedy policy
         print("actor_",rank,": call select action") 
-        action = select_action(number_of_actions=no_actions,
+        action, q_value = select_action(number_of_actions=no_actions,
                                     epsilon=args["epsilon"], 
                                     grid_shift=grid_shift,
                                     toric_size = env.system_size,
@@ -95,9 +95,17 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
                                             state,
                                             terminal_state)
 
+        # TODO: Store q_value
         local_buffer.insert(local_memory_index, transition)
+        local_memory_index += 1
+
         if (local_memory_index % len(local_buffer)):
             # TODO: Compute priorities
+                # initial priority
+
+                # weights
+                # normalize weights
+                # priority = weights * initial priority
             # TODO (Adam) send buffer to learner
             local_memory_index = 0
 
@@ -128,35 +136,45 @@ def select_action(number_of_actions, epsilon, grid_shift,
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
     
-    print("actor_: done batch perspectives") 
+    print("actor_: done batch perspectives")
+
+    for p in model.parameters():
+        print(p)
+
+    # Policy
+    policy_net_output = None
+    q_values_table = None
+    with torch.no_grad():
+        policy_net_output = model(batch_perspectives)
+        q_values_table = np.array(policy_net_output.cpu())
+
     #choose action using epsilon greedy approach
     rand = random.random()
     if(1 - epsilon > rand):
         print("actor_: select greedy") 
         # select greedy action 
-        with torch.no_grad():
-            print(model)
-            #convert batch_perspectives from numpy to tensor? maby error? 
-            policy_net_output = model(batch_perspectives)
-            print("actor_: select greedy: output from model") 
-            q_values_table = np.array(policy_net_output.cpu())
-            row, col = np.where(q_values_table == np.max(q_values_table))
-            perspective = row[0]
-            max_q_action = col[0] + 1
-            action = [  batch_position_actions[perspective][0],
-                        batch_position_actions[perspective][1],
-                        batch_position_actions[perspective][2],
-                        max_q_action]
+        print("actor_: select greedy: output from model") 
+        row, col = np.where(q_values_table == np.max(q_values_table))
+        perspective = row[0]
+        max_q_action = col[0] + 1
+        action = [  batch_position_actions[perspective][0],
+                    batch_position_actions[perspective][1],
+                    batch_position_actions[perspective][2],
+                    max_q_action]
+        q_value = q_values_table[row, col]
+
     # select random action
     else:
-        print("actor_: select random") 
+        print("actor_: select random")
         random_perspective = random.randint(0, number_of_perspectives-1)
         random_action = random.randint(1, number_of_actions)
         action = [  batch_position_actions[random_perspective][0],
                     batch_position_actions[random_perspective][1],
                     batch_position_actions[random_perspective][2],
                     random_action]
-    return action    
+        q_value = [random_perspective, random_action]
+
+    return action, q_value
     
 
 def generatePerspective(grid_shift, toric_size, state):

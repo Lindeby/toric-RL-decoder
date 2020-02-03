@@ -196,7 +196,6 @@ class Toric_code():
         return perspectives
 
 
-    # TODO: Move to actor
     def generate_memory_entry(self, action, reward, grid_shift):
         def shift_state(row, col):
             perspective = np.roll(self.current_state, grid_shift-row, axis=1)

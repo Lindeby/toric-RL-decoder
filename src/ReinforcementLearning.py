@@ -118,7 +118,7 @@ class ReinforcementLearning():
         optimizer.zero_grad()
         # for prioritized experience replay
         if self.replay_memory == 'proportional':
-            loss = convert_from_np_to_tensor(np.array(weights)) * loss.cpu()
+            loss = convert_from_np_to_tensor(np.array(weights)) * loss.cpu() # not network weights
             priorities = loss
             priorities = np.absolute(priorities.detach().numpy())
             self.memory.priority_update(indices, priorities)
@@ -331,169 +331,169 @@ class ReinforcementLearning():
         return error_corrected_list
 
     
-    def _trainDistributed(self, no_actors):
-        """Starts the learner and the requested number of actors
-        """
-        size = no_actors +1
-        processes = []
+    # def _trainDistributed(self, no_actors):
+    #     """Starts the learner and the requested number of actors
+    #     """
+    #     size = no_actors +1
+    #     processes = []
 
-        # Communication channels between processes
-        weight_queue = SimpleQueue()
-        transition_queue = SimpleQueue()
+    #     # Communication channels between processes
+    #     weight_queue = SimpleQueue()
+    #     transition_queue = SimpleQueue()
 
-        # provide all args in a dict
-        learner_args = {"no_actors":10, "train_steps":100, "batch_size":16, "optimizer":"Adam"
-                        ,"update_actor_policy_freq":50}
-        learner_process = Process(target=init_process, args=(0, size, learner,
-                                                            weight_queue,
-                                                            transition_queue,
-                                                            learner_args))
-        learner_process.start()
-        processes.append(learner_process)
+    #     # provide all args in a dict
+    #     learner_args = {"no_actors":10, "train_steps":100, "batch_size":16, "optimizer":"Adam"
+    #                     ,"update_actor_policy_freq":50}
+    #     learner_process = Process(target=init_process, args=(0, size, learner,
+    #                                                         weight_queue,
+    #                                                         transition_queue,
+    #                                                         learner_args))
+    #     learner_process.start()
+    #     processes.append(learner_process)
 
-        # provide all args in a dict
-        actor_args = {}
-        for rank in range(no_actors):
-            actor_process = Process(target=init_process, args=(rank+1, size, actor, weight_queue, transition_queue,
-                                                                no_actors, train_steps, batch_size, optimizer, model, learning_rate
-                                                                update_actor_policy_freq, replay_memory))
-            actor_process.start()
-            processes.append(actor_process)
+    #     # provide all args in a dict
+    #     actor_args = {}
+    #     for rank in range(no_actors):
+    #         actor_process = Process(target=init_process, args=(rank+1, size, actor, weight_queue, transition_queue,
+    #                                                             no_actors, train_steps, batch_size, optimizer, model, learning_rate
+    #                                                             update_actor_policy_freq, replay_memory))
+    #         actor_process.start()
+    #         processes.append(actor_process)
 
-        for p in processes:
-            p.join()
+    #     for p in processes:
+    #         p.join()
     
 
-    def init_process(rank, size, fn, q, backend='gloo'):
-        """ Initialize the distributed environment. """
-        os.environ['MASTER_ADDR'] = '127.0.0.2'
-        os.environ['MASTER_PORT'] = '29501'
-        dist.init_process_group(backend, rank=rank, world_size=size)
-        fn(rank, size, q)
+    # def init_process(rank, size, fn, q, backend='gloo'):
+    #     """ Initialize the distributed environment. """
+    #     os.environ['MASTER_ADDR'] = '127.0.0.2'
+    #     os.environ['MASTER_PORT'] = '29501'
+    #     dist.init_process_group(backend, rank=rank, world_size=size)
+    #     fn(rank, size, q)
 
 
-    def learner(self, rank, world_size, weight_queue, transition_queue, 
-                no_actors, train_steps, batch_size, optimizer, model, learning_rate,
-                update_actor_policy_freq, replay_memory):
-        """The learner in a distributed RL setting. Updates the network params, pushes
-        new network params to actors. Additionally, this function collects the transitions
-        in the queue from the actors and manages the replay buffer.
-        """
+    # def learner(self, rank, world_size, weight_queue, transition_queue, 
+    #             no_actors, train_steps, batch_size, optimizer, model, learning_rate,
+    #             update_actor_policy_freq, replay_memory):
+    #     """The learner in a distributed RL setting. Updates the network params, pushes
+    #     new network params to actors. Additionally, this function collects the transitions
+    #     in the queue from the actors and manages the replay buffer.
+    #     """
 
-        # init counter
-        cnt_push_new_weights = 0
+    #     # init counter
+    #     cnt_push_new_weights = 0
 
-        # set network to train mode
-        model.train()
+    #     # set network to train mode
+    #     model.train()
 
-        # define criterion and optimizer
-        criterion = nn.MSELoss(reduction='none')
-        if optimizer == 'RMSprop':
-            optimizer = optim.RMSprop(model.parameters(), lr=learning_rate)
-        elif optimizer == 'Adam':    
-            optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    #     # define criterion and optimizer
+    #     criterion = nn.MSELoss(reduction='none')
+    #     if optimizer == 'RMSprop':
+    #         optimizer = optim.RMSprop(model.parameters(), lr=learning_rate)
+    #     elif optimizer == 'Adam':    
+    #         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-        # Broadcast initial weights to actors
-        group = dist.new_group([x for x in range(world_size)])
-        weights = parameters_to_vector(model.parameters())
-        dist.broadcast(tensor=weights, src=rank, group=group) 
+    #     # Broadcast initial weights to actors
+    #     group = dist.new_group([x for x in range(world_size)])
+    #     weights = parameters_to_vector(model.parameters())
+    #     dist.broadcast(tensor=weights, src=rank, group=group) 
 
-        # Wait until replay memory has enough transitions for one batch
-        while len(replay_memory) < 16:
-            if not transition_queue.empty():
-                transition = transition_queue.get()
-                replay_memory.save(transition) # Assuming memory entry generated by actor
+    #     # Wait until replay memory has enough transitions for one batch
+    #     while len(replay_memory) < 16:
+    #         if not transition_queue.empty():
+    #             transition = transition_queue.get()
+    #             replay_memory.save(transition) # Assuming memory entry generated by actor
 
-        for t in range(train_steps):
-            # TODO: Fix update of priorities
-            self.experience_replay(criterion, optimizer, batch_size) # perform one train step
+    #     for t in range(train_steps):
+    #         # TODO: Fix update of priorities
+    #         self.experience_replay(criterion, optimizer, batch_size) # perform one train step
 
-            # Get incomming transitions
-            while not transition_queue.empty():
-                transitions = replay_queue.get()
-                replay_memory.save(transition) # Assuming memory entry generated by actor
+    #         # Get incomming transitions
+    #         while not transition_queue.empty():
+    #             transitions = replay_queue.get()
+    #             replay_memory.save(transition) # Assuming memory entry generated by actor
 
             
-            # self.replay_memory.cut() # TODO
+    #         # self.replay_memory.cut() # TODO
 
-            cnt_push_new_weights += 1
-            if cnt_push_new_weights % update_actor_policy_freq == 0:
-                weights = parameters_to_vector(model.parameters())
-                for actor in range(world_size-1):
-                    weight_queue.put([weights.detach()])
+    #         cnt_push_new_weights += 1
+    #         if cnt_push_new_weights % update_actor_policy_freq == 0:
+    #             weights = parameters_to_vector(model.parameters())
+    #             for actor in range(world_size-1):
+    #                 weight_queue.put([weights.detach()])
 
-                cnt_push_new_weights = 0
+    #             cnt_push_new_weights = 0
 
-            # periodically evaluate network
+    #         # periodically evaluate network
 
         
-    def actor(self, rank, world_size, weight_queue, transition_queue, no_actions, model, env,
-            training_steps=int,                 # timesteps
-            max_nrb_actions_per_episode = int,  # max number of timesteps/episode
-            update_policy = int,                # timesteps until update local policy net
-            epsilon = float,                    # gready epsilon choise 
-            optimizer=str,                      # RMSprop or Adam
-            local_memory_buffer = int,          # Size of local memory buffer
-            minimum_nbr_of_qubit_errors=0):     # Minimum numbers of eror generated for each episode 
+    # def actor(self, rank, world_size, weight_queue, transition_queue, no_actions, model, env,
+    #         training_steps=int,                 # timesteps
+    #         max_nrb_actions_per_episode = int,  # max number of timesteps/episode
+    #         update_policy = int,                # timesteps until update local policy net
+    #         epsilon = float,                    # gready epsilon choise 
+    #         optimizer=str,                      # RMSprop or Adam
+    #         local_memory_buffer = int,          # Size of local memory buffer
+    #         minimum_nbr_of_qubit_errors=0):     # Minimum numbers of eror generated for each episode 
             
-            # set network to eval mode
-            model.eval()
+    #         # set network to eval mode
+    #         model.eval()
 
-            # define criterion and optimizer
-            # criterion = nn.MSELoss(reduction='none')
-            # if optimizer == 'RMSprop':
-            #     optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)
-            # elif optimizer == 'Adam':    
-            #     optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+    #         # define criterion and optimizer
+    #         # criterion = nn.MSELoss(reduction='none')
+    #         # if optimizer == 'RMSprop':
+    #         #     optimizer = optim.RMSprop(self.policy_net.parameters(), lr=self.learning_rate)
+    #         # elif optimizer == 'Adam':    
+    #         #     optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
 
-            # Init network params
-            weights = torch.zeros(1)
-            dist.broadcast(tensor=weights, src=0)
-            vector_to_parameters(param_vec, model.parameters())
+    #         # Init network params
+    #         weights = torch.zeros(1)
+    #         dist.broadcast(tensor=weights, src=0)
+    #         vector_to_parameters(param_vec, model.parameters())
             
-            # init counters
-            steps_counter = 0
-            update_counter = 1
-            # iteration = 0
+    #         # init counters
+    #         steps_counter = 0
+    #         update_counter = 1
+    #         # iteration = 0
 
-            # local buffer to store transitions before sending
-            local_buffer = []
+    #         # local buffer to store transitions before sending
+    #         local_buffer = []
 
-            # Create enviroment
-            # env = gym.make('toric-code-v0')    
+    #         # Create enviroment
+    #         # env = gym.make('toric-code-v0')    
             
-            # main loop over training steps 
-            for iteration in range(training_steps):
-                steps_per_episode = 0
-                env.reset()
-                terminal_state = False
+    #         # main loop over training steps 
+    #         for iteration in range(training_steps):
+    #             steps_per_episode = 0
+    #             env.reset()
+    #             terminal_state = False
                 
-                # solve one episode
-                while not terminal_state and steps_per_episode < max_nbr_actions_per_episode 
-                    steps_per_episode += 1
-                    steps_counter += 1
-                    # iteration += 1
+    #             # solve one episode
+    #             while not terminal_state and steps_per_episode < max_nbr_actions_per_episode 
+    #                 steps_per_episode += 1
+    #                 steps_counter += 1
+    #                 # iteration += 1
 
-                    # select action using epsilon greedy policy
-                    action = self.select_action(number_of_actions=no_actions,
-                                                epsilon=epsilon, 
-                                                grid_shift=self.grid_shift)
+    #                 # select action using epsilon greedy policy
+    #                 action = self.select_action(number_of_actions=no_actions,
+    #                                             epsilon=epsilon, 
+    #                                             grid_shift=self.grid_shift)
 
-                    state, reward, terminal_state, _ = env.step(action)
+    #                 state, reward, terminal_state, _ = env.step(action)
 
 
-                    # generate memory entry
-                    # TODO: move code from toricmodel for memory genreation, change what is nesesary 
-                    perspective, action_memory, reward, next_perspective, terminal = self.toric.generate_memory_entry(
-                        action, reward, self.grid_shift)  
+    #                 # generate memory entry
+    #                 # TODO: move code from toricmodel for memory genreation, change what is nesesary 
+    #                 perspective, action_memory, reward, next_perspective, terminal = self.toric.generate_memory_entry(
+    #                     action, reward, self.grid_shift)  
 
-                    # TODO: push to local buffer
-                    # save transition in memory
-                    self.memory.save(Transition(perspective, action_memory, reward, next_perspective, terminal), 10000) # max priority
+    #                 # TODO: push to local buffer
+    #                 # save transition in memory
+    #                 self.memory.save(Transition(perspective, action_memory, reward, next_perspective, terminal), 10000) # max priority
 
-                    # set target_net to policy_net
-                    if not weight_queue.empty():
-                        w = weight_queue.get()[0]
-                        vector_to_parameters(w, model.parameters())
+    #                 # set target_net to policy_net
+    #                 if not weight_queue.empty():
+    #                     w = weight_queue.get()[0]
+    #                     vector_to_parameters(w, model.parameters())
 
-                    # TODO: check if transitions should be pushed
+    #                 # TODO: check if transitions should be pushed

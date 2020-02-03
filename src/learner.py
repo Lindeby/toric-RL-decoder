@@ -39,7 +39,7 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
             return tensor.to(device)
 
         # get transitions and unpack them to minibatch
-        transitions, weights, indices = replay_memory(batch_size, 0.4)
+        transitions, weights, indices = replay_memory.sample(batch_size, 0.4)
         mini_batch = Transition(*zip(*transitions))
 
         # preprocess batch_input and batch_target_input for the network
