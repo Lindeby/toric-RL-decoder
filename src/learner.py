@@ -24,10 +24,10 @@ def learner(rank, world_size, args):
             "device",
             "policy_update",
             "replay_memory",
-            "discount_factor"}
+            "discount_factor",
+            "con_send_weights"}
     """
-
-    weight_queue = args["weight_queue"]
+    con_send_weights = args["con_send_weights"]
     transition_queue = args["transition_queue"]
     device = args["device"]
     replay_memory = args["replay_memory"]
@@ -81,8 +81,8 @@ def learner(rank, world_size, args):
     # Push initial network params
     weights = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
-    for actor in range(world_size-1):
-        weight_queue.put(weights.detach())
+    for actor in range(world_size-2):
+        con_send_weights[actor].send(weights.detach())
 
 
     # Wait until replay memory has enough transitions for one batch
@@ -124,9 +124,8 @@ def learner(rank, world_size, args):
         push_new_weights += 1
         if push_new_weights % args["policy_update"] == 0:
             weights = parameters_to_vector(policy_net.parameters())
-            for actor in range(world_size-1):
-                weight_queue.put([weights.detach()])
-
+            for actor in range(world_size-2):
+                con_send_weights[actor].send(weights.detach())
             push_new_weights = 0
 
         # periodically evaluate network
