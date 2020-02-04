@@ -1,18 +1,18 @@
+# torch
 import torch
 import torch.distributed as dist
-import numpy as np 
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
-from collections import namedtuple
 from torch import from_numpy
+# other
+import numpy as np 
 import random
+# from file 
+from util import Action, Perspective, Transition, generatePerspective
 
+# for testing
 from src.nn.torch.NN import NN_17
 
 
-Perspective = namedtuple('Perspective', ['perspective', 'position'])
-Action = namedtuple('Action', ['position', 'action'])
-Transition = namedtuple('Transition',
-                        ['state', 'action', 'reward', 'next_state', 'terminal'])
 
 def actor(rank, world_size, args):
     print("actor")
@@ -53,8 +53,8 @@ def actor(rank, world_size, args):
 
 
     # load weights
-    vector_to_parameters(weights, model.parameters())
-    # model.load_state_dict(weights)
+    # vector_to_parameters(weights, model.parameters())
+    model.load_state_dict(weights)
 
     # init counters
     steps_counter = 0
@@ -108,7 +108,9 @@ def actor(rank, world_size, args):
 
             to_send = [*zip(local_buffer, priorities)]
 
-            # TODO (Adam) send buffer to learner
+            # send buffer to learner
+            transition_queue.put(to_send)
+
             local_memory_index = 0
         else:
             local_memory_index += 1
@@ -173,35 +175,6 @@ def select_action(number_of_actions, epsilon, grid_shift,
     return action, q_value
     
 
-def generatePerspective(grid_shift, toric_size, state):
-    def mod(index, shift):
-        index = (index + shift) % toric_size 
-        return index
-    perspectives = []
-    vertex_matrix = state[0,:,:]
-    plaquette_matrix = state[1,:,:]
-    # qubit matrix 0
-    for i in range(toric_size):
-        for j in range(toric_size):
-            if vertex_matrix[i, j] == 1 or vertex_matrix[mod(i, 1), j] == 1 or \
-            plaquette_matrix[i, j] == 1 or plaquette_matrix[i, mod(j, -1)] == 1:
-                new_state = np.roll(state, grid_shift-i, axis=1)
-                new_state = np.roll(new_state, grid_shift-j, axis=2)
-                temp = Perspective(new_state, (0,i,j))
-                perspectives.append(temp)
-    # qubit matrix 1
-    for i in range(toric_size):
-        for j in range(toric_size):
-            if vertex_matrix[i,j] == 1 or vertex_matrix[i, mod(j, 1)] == 1 or \
-            plaquette_matrix[i,j] == 1 or plaquette_matrix[mod(i, -1), j] == 1:
-                new_state = np.roll(state, grid_shift-i, axis=1)
-                new_state = np.roll(new_state, grid_shift-j, axis=2)
-                new_state = rotate_state(new_state) # rotate perspective clock wise
-                temp = Perspective(new_state, (1,i,j))
-                perspectives.append(temp)
-    
-    return perspectives
-
 
 def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, device, model, discount_factor):
     """ Computes the absolute temporal difference value.
@@ -219,6 +192,7 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
     =======
     (torch.Tensor) Initial (biased) priorities
     """
+    
     def toNetInput(batch, device):
         batch_input = np.stack(batch, axis=0)
         # from np to tensor
@@ -232,7 +206,6 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
 
     max_q_value_buffer = []
 
-    # TODO: Optimize, for-loop nicht gut
     for state in next_state_batch:
         perspectives = generatePerspective(grid_shift, system_size, state)
 

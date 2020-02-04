@@ -13,7 +13,7 @@ from .actor import actor
 from .ReplayMemory import PrioritizedReplayMemory
 
 
-def eperienceReplayBuffer(rank, 
+def experienceReplayBuffer(rank, 
                           worl_size, 
                           args):
     
@@ -154,7 +154,7 @@ class Distributed():
         memmory_process = Process(target = self._init_process,
                                   args=(1, 
                                         world_size,
-                                        eperienceReplayBuffer,
+                                        experienceReplayBuffer,
                                         args))
 
         memmory_process.start()
