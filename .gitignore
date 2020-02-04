@@ -13,3 +13,7 @@ src/testing.py
 logs/*
 src/__pycache__
 src/nn/torch/__pycache__
+*.pyc
+*.swp
+*.swo
+

@@ -14,7 +14,8 @@ Action = namedtuple('Action', ['position', 'action'])
 Transition = namedtuple('Transition',
                         ['state', 'action', 'reward', 'next_state', 'terminal'])
 
-def actor(rank, world_size, weight_queue, transition_queue, args):
+def actor(rank, world_size, args):
+    print("actor")
     """ 
     args = {"train_steps", 
             "max_actions_per_episode", 
@@ -24,10 +25,13 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             "model",
             "env",
             "device",
-            "epsilon"
+            "epsilon",
+            "con_receive_weights"
             }
     """
      
+    con_receive_weights = args["con_receive_weights"]
+    transition_queue = args["transition_queue"]
     device = args["device"]
     
     # set network to eval mode
@@ -41,8 +45,12 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     # Get initial network params
     weights = None
     while weights == None:
-        if not weight_queue.empty():
-            weights = weight_queue.get()
+        print("recieve weights")
+        weights = con_receive_weights.recv()
+        print("done receiving weights")
+        #if not weight_queue.empty():
+        #    weights = weight_queue.get()
+
 
     # load weights
     vector_to_parameters(weights, model.parameters())

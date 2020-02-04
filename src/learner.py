@@ -6,7 +6,8 @@ import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
 
-def learner(rank, world_size, weight_queue, transition_queue, args):
+#def learner(rank, world_size, weight_queue, transition_queue, args):
+def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
     new network params to actors. Additionally, this function collects the transitions
     in the queue from the actors and manages the replay buffer.
@@ -23,9 +24,11 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
             "device",
             "policy_update",
             "replay_memory",
-            "discount_factor"}
+            "discount_factor",
+            "con_send_weights"}
     """
-
+    con_send_weights = args["con_send_weights"]
+    transition_queue = args["transition_queue"]
     device = args["device"]
     replay_memory = args["replay_memory"]
 
@@ -78,8 +81,8 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
     # Push initial network params
     weights = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
-    for actor in range(world_size-1):
-        weight_queue.put(weights.detach())
+    for actor in range(world_size-2):
+        con_send_weights[actor].send(weights.detach())
 
 
     # Wait until replay memory has enough transitions for one batch
@@ -121,9 +124,8 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
         push_new_weights += 1
         if push_new_weights % args["policy_update"] == 0:
             weights = parameters_to_vector(policy_net.parameters())
-            for actor in range(world_size-1):
-                weight_queue.put([weights.detach()])
-
+            for actor in range(world_size-2):
+                con_send_weights[actor].send(weights.detach())
             push_new_weights = 0
 
         # periodically evaluate network
