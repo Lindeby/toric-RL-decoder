@@ -51,7 +51,6 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
     # init counters
     steps_counter = 0
     update_counter = 1
-    # iteration = 0
 
     # local buffer of fixed size to store transitions before sending
     local_buffer = [None] * args["size_local_memory_buffer"]
@@ -65,7 +64,6 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
    
     # main loop over training steps 
     for iteration in range(args["train_steps"]):
-        print(iteration)
 
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
@@ -83,7 +81,7 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
         
         state, reward, terminal_state, _ = env.step(action)
 
-        # generate transition to stor in local memory buffer
+        # generate transition to store in local memory buffer
         transition = generateTransition(action,
                                             reward,
                                             grid_shift,
@@ -108,10 +106,10 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             local_memory_index += 1
 
         # if new weights are available, update network
-        #if not weight_queue.empty():
-        #    w = weight_queue.get()[0]
-        #    vector_to_parameters(w, model.parameters())
-        
+        if not weight_queue.empty():
+            w = weight_queue.get()
+            vector_to_parameters(weights, model.parameters())
+
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
             state = env.reset()
             steps_per_episode = 0
@@ -246,9 +244,6 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
     max_q_value_buffer  = toNetInput(np.array(max_q_value_buffer), device)
     q_value_buffer      = toNetInput(np.array(q_value_buffer), device)
     return torch.abs(reward_batch + discount_factor*max_q_value_buffer - q_value_buffer)
-
-
-
 
 
 
