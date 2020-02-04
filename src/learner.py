@@ -6,7 +6,8 @@ import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
 
-def learner(rank, world_size, weight_queue, transition_queue, args):
+#def learner(rank, world_size, weight_queue, transition_queue, args):
+def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
     new network params to actors. Additionally, this function collects the transitions
     in the queue from the actors and manages the replay buffer.
@@ -26,6 +27,8 @@ def learner(rank, world_size, weight_queue, transition_queue, args):
             "discount_factor"}
     """
 
+    weight_queue = args["weight_queue"]
+    transition_queue = args["transition_queue"]
     device = args["device"]
     replay_memory = args["replay_memory"]
 

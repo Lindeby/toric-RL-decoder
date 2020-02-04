@@ -10,6 +10,7 @@ from torch.multiprocessing import Process, SimpleQueue
 # other files
 from .learner import learner
 from .actor import actor
+from .ReplayMemory import PrioritizedReplayMemory
 
 
 class Distributed():
@@ -26,7 +27,8 @@ class Distributed():
         self.env = env
         self.optimizer = optimizer
         self.device = device
-
+        self.replay_size = replay_size
+        self.alpha = alpha
         self.policy_net = policy_net
         self.policy_net = self.policy_net.to(self.device)
         self.target_net = target_net
@@ -43,6 +45,22 @@ class Distributed():
         # Communication channels between processes
         weight_queue = SimpleQueue()
         transition_queue = SimpleQueue()
+        transition_queue_to_memory = SimpleQueue()
+        transition_queue_from_memory = SimpleQueue()
+        update_priorities_queue_to_memory = SimpleQueue()
+
+
+        #args = {"capacity":self.replay_size,
+        #        "alpha": self.alpha,
+        #        }
+        #
+        #memmory_process = Process(target = self._init_process,
+        #                          args=(1, 
+        #                                world_size,
+        #                                eperienceReplayBuffer,
+                                        
+                                        
+          
         
         args = {"no_actors": no_actors,
                 "train_steps":training_steps,
@@ -54,12 +72,16 @@ class Distributed():
                 "device":self.device,
                 "policy_update":policy_update,
                 "replay_memory":self.replay_memory,
-                "discount_factor":discount_factor
+                "discount_factor":discount_factor,
+                "transition_queue":transition_queue,
+                "weight_queue":weight_queue
                 }
-        learner_process = Process(target=self._init_process, args=(0, world_size, learner, weight_queue,
-                                                                   transition_queue, args))
-
-        print("starting learner thread")
+         
+        learner_process = Process(target=self._init_process, 
+                                  args=(0, 
+                                        world_size, 
+                                        learner, 
+                                        args))
         learner_process.start()
         processes.append(learner_process)
 
@@ -73,13 +95,19 @@ class Distributed():
                 "env":self.env,
                 "device":self.device,
                 "beta": 1,
-                "discount_factor":discount_factor
+                "discount_factor":discount_factor,
+                "transition_queue":transition_queue,
+                "weight_queue":weight_queue
                 }
     
         for rank in range(no_actors):
             args["epsilon"] = epsilons[rank]
-            actor_process = Process(target=self._init_process, args=(rank+1, world_size, actor, weight_queue,
-                                                                transition_queue, args))
+            
+            actor_process = Process(target=self._init_process, 
+                                    args=(rank+1, 
+                                          world_size, 
+                                          actor, 
+                                          args))
 
             actor_process.start()
             print("starting actor ",(rank + 1))
@@ -89,11 +117,21 @@ class Distributed():
             p.join()
             print(p, "joined")
 
-    def _init_process(self, rank, size, fn, wq, tq, args, backend='gloo'):
+    def _init_process(self, rank, size, fn, args, backend='gloo'):
         """ Initialize the distributed environment. """
         os.environ['MASTER_ADDR'] = '127.0.0.2'
         os.environ['MASTER_PORT'] = '29501'
         dist.init_process_group(backend, rank=rank, world_size=size)
-        fn(rank, size, wq, tq, args)
-
+        fn(rank, size, args)
+        
+    
+    def eperienceReplayBuffer(rank, 
+                              worl_size, 
+                              args):
+        
+        
+        args = {"capacity",
+                "alpha"}
+       
+        memory = PrioritizedReplayMemory(capacity, alpha)
 

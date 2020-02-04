@@ -14,7 +14,8 @@ Action = namedtuple('Action', ['position', 'action'])
 Transition = namedtuple('Transition',
                         ['state', 'action', 'reward', 'next_state', 'terminal'])
 
-def actor(rank, world_size, weight_queue, transition_queue, args):
+#def actor(rank, world_size, weight_queue, transition_queue, args):
+def actor(rank, world_size, args):
     """ 
     args = {"train_steps", 
             "max_actions_per_episode", 
@@ -28,6 +29,8 @@ def actor(rank, world_size, weight_queue, transition_queue, args):
             }
     """
      
+    weight_queue = args["weight_queue"]
+    transition_queue = args["transition_queue"]
     device = args["device"]
     
     # set network to eval mode
