@@ -71,10 +71,7 @@ def learner(rank, world_size, args):
         Params
         ======
         data: () Data from the replay buffer queue. Each item is a tuple of
-                 (('state', 'action', 'reward', 'next_state', 'terminal'), index)
-                 What about weights? Not needed since we compute new priorities.
-                 What about indices? Needed for updating of priorities.
-
+                 (('state', 'action', 'reward', 'next_state', 'terminal'), index, weight)
         Returns
         =======
         """
@@ -177,7 +174,7 @@ def learner(rank, world_size, args):
         loss = criterion(y, policy_output)
         
         # Compute priotities
-        priorities = loss.cpu()
+        priorities = loss.cpu() #TODO: priorities = np.absolute(weights * loss.cpu())
         
         optimizer.zero_grad()
         loss = loss.mean()
