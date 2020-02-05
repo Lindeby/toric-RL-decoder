@@ -224,7 +224,7 @@ def computePriorities(local_buffer, q_values_buffer, discount_factor):
     q_values_max_next_state = np.amax(np.roll(q_values_buffer, -1), axis=1)
     q_values_state          = np.array([q_values_buffer[i][a.action-1] for i, a in enumerate(transitions.action)])
 
-    return np.abs(reward_batch - discount_factor*q_values_max_next_state - q_values_state)
+    return np.absolute(reward_batch - discount_factor*q_values_max_next_state - q_values_state)
 
 
 def generateTransition( action, 
