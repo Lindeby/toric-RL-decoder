@@ -9,7 +9,7 @@ from torch import from_numpy
 import numpy as np
 
 # from file
-from util import Action, Perspective, Transition, generatePerspective
+from src.util import Action, Perspective, Transition, generatePerspective
 
 
 #def learner(rank, world_size, weight_queue, transition_queue, args):
@@ -37,7 +37,7 @@ def learner(rank, world_size, args):
             }
     """
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
-    transition_queue_from_memory = args["transition_queue_from_memory"]''
+    transition_queue_from_memory = args["transition_queue_from_memory"]
     con_send_weights = args["con_send_weights"]
     transition_queue = args["transition_queue"]
     device = args["device"]
@@ -70,22 +70,30 @@ def learner(rank, world_size, args):
 
         # get transitions and unpack them to minibatch
         #transitions, weights, indices = replay_memory.sample(batch_size, 0.4)
-        batch = (*zip(*data[0])
-        indices = (*zip(*data[1]))
-
+        #batch = (*zip(*data[0]))
+        #indices = (*zip(*data[1]))
+        batch, index = zip(*data)
         # preprocess batch_input and batch_target_input for the network
-        batch_state = toNetInput(batch[0])
-        batch_next_state = toNetInput(batch[3])
+        list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
+        batch_state = toNetInput(list_state)
+        #batch_state = toNetInput(batch[0])
+        batch_next_state = toNetInput(list_next_state)
+        #batch_next_state = toNetInput(batch[3])
 
         # unpack action batch
-        batch_actions = Action(*zip(*batch[1]))
-        batch_actions = np.array(batch_actions.action) - 1
-        batch_actions = torch.Tensor(batch_actions).long()
-        batch_actions = batch_actions.to(device) 
+        batch_actions = np.array(list_action)
+        batch_actions = torch.Tensor(batch_actions)
+        batch_actions = batch_actions.to(device)
+        #batch_actions = Action(*zip(*batch[1]))
+        #batch_actions = np.array(batch_actions.action) - 1
+        #batch_actions = torch.Tensor(batch_actions).long()
+        #batch_actions = batch_actions.to(device) 
 
         # preprocess batch_terminal and batch reward
-        batch_terminal = from_numpy(np.array(batch[4])).type('torch.Tensor').to(device)
-        batch_reward   = from_numpy(np.array(batch[2])).type('torch.Tensor').to(device)
+        batch_terminal = from_numpy(np.array(list_terminal)).type('torch.Tensor').to(device)
+        #batch_terminal = from_numpy(np.array(batch[4])).type('torch.Tensor').to(device)
+        batch_reward   = from_numpy(np.array(list_reward)).type('torch.Tensor').to(device)
+        #batch_reward   = from_numpy(np.array(batch[2])).type('torch.Tensor').to(device)
 
         return batch_state, batch_actions, batch_reward, batch_next_state, indices
 

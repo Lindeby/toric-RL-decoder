@@ -7,7 +7,7 @@ from torch import from_numpy
 import numpy as np 
 import random
 # from file 
-from util import Action, Perspective, Transition, generatePerspective
+from src.util import Action, Perspective, Transition, generatePerspective, rotate_state, shift_state
 
 # for testing
 from src.nn.torch.NN import NN_17
@@ -107,7 +107,8 @@ def actor(rank, world_size, args):
             priorities *= normalized_weights
 
             to_send = [*zip(local_buffer, priorities)]
-
+            print("send_to")
+            print(send_to)
             # send buffer to learner
             transition_queue.put(to_send)
 
@@ -252,19 +253,19 @@ def generateTransition( action,
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
 
 
-def rotate_state(state):
-        vertex_matrix = state[0,:,:]
-        plaquette_matrix = state[1,:,:]
-        rot_plaquette_matrix = np.rot90(plaquette_matrix)
-        rot_vertex_matrix = np.rot90(vertex_matrix)
-        rot_vertex_matrix = np.roll(rot_vertex_matrix, 1, axis=0)
-        rot_state = np.stack((rot_vertex_matrix, rot_plaquette_matrix), axis=0)
-        return rot_state 
-
-    
-def shift_state(row, col, previous_state, state, grid_shift):
-        previous_perspective = np.roll(previous_state, grid_shift-row, axis=1)
-        previous_perspective = np.roll(previous_perspective, grid_shift-col, axis=2)
-        perspective = np.roll(state, grid_shift-row, axis=1)
-        perspective = np.roll(perspective, grid_shift-col, axis=2)
-        return previous_perspective, perspective
+#def rotate_state(state):
+#        vertex_matrix = state[0,:,:]
+#        plaquette_matrix = state[1,:,:]
+#        rot_plaquette_matrix = np.rot90(plaquette_matrix)
+#        rot_vertex_matrix = np.rot90(vertex_matrix)
+#        rot_vertex_matrix = np.roll(rot_vertex_matrix, 1, axis=0)
+#        rot_state = np.stack((rot_vertex_matrix, rot_plaquette_matrix), axis=0)
+#        return rot_state 
+#
+#    
+#def shift_state(row, col, previous_state, state, grid_shift):
+#        previous_perspective = np.roll(previous_state, grid_shift-row, axis=1)
+#        previous_perspective = np.roll(previous_perspective, grid_shift-col, axis=2)
+#        perspective = np.roll(state, grid_shift-row, axis=1)
+#        perspective = np.roll(perspective, grid_shift-col, axis=2)
+#        return previous_perspective, perspective

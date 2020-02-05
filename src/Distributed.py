@@ -50,8 +50,8 @@ def experienceReplayBuffer(rank,
 
         #Sample batch of transitions to learner
         for _ in range(10):
-            transition, _ indices = memory.sample(batch_size, beta)
-            transition_queue_from_memory.put(transition, indices)
+            transition, _, indices = memory.sample(batch_size, beta)
+            transition_queue_from_memory.put((transition, indices))
 
         for _ in range(10):
             if update_priorities_queue_to_memory.empty():
@@ -71,13 +71,15 @@ class Distributed():
                                           'terminal']) 
     
     
-    def __init__(self, policy_net, target_net, device, optimizer, replay_size, alpha, env):
+    def __init__(self, policy_net, target_net, device, optimizer, replay_size, alpha, beta, memory_batch_size, env):
 
         self.env = env
         self.optimizer = optimizer
         self.device = device
         self.replay_size = replay_size
         self.alpha = alpha
+        self.beta = beta
+        self.memory_batch_size = memory_batch_size
         self.policy_net = policy_net
         self.policy_net = self.policy_net.to(self.device)
         self.target_net = target_net
@@ -144,8 +146,8 @@ class Distributed():
         """
         args = {"capacity":self.replay_size,
                 "alpha": self.alpha,
-                "beta":TODO,
-                "batch_size":TODO,
+                "beta":self.beta,
+                "batch_size":self.memory_batch_size,
                 "transition_queue_to_memory":transition_queue_to_memory,
                 "transition_queue_form_memory":transition_queue_from_memory,
                 "update_priorities_queue_to_memory":update_priorities_queue_to_memory
