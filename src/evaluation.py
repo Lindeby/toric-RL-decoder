@@ -1,19 +1,43 @@
-from util import load_network, incremental_mean, generatePerspective
+from util import load_network, incrementalMean, generatePerspective
 
 
 
-def evalutate(self, env, grid_shift, device, num_of_predictions=1, num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
-    show_network=False, show_plot=False, prediction_list_p_error=float, minimum_nbr_of_qubit_errors=0, 
+def evaluate(self, env, grid_shift, device, prediction_list_p_error, num_of_predictions=1,
+    num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
+    show_network=False, show_plot=False, minimum_nbr_of_qubit_errors=0, 
     print_Q_values=False, save_prediction=True):
     """ Evaluates the current policy by running some episodes.
 
     Params
     ======
+    env:                            (gym.Env)
+    grid_shift:                     (int)
+    device:                         (String) {"cpu", "cuda"}
+    prediction_list_p_error:        (list)
+    num_predictions:                (int)       (optional)
+    num_actions:                    (int)       (optional)
+    epsilon:                        (float)     (optional)
+    num_of_steps:                   (int)       (optional)
+    PATH:                           (String)    (optional)
+    plot_one_episode:               (Bool)      (optional)
+    show_network:                   (Bool)      (optional)
+    show_plot:                      (Bool)      (optional)
+    minimum_nbr_of_qubit_errors:    (int)       (optional)
+    print_Q_values:                 (Bool)      (optional)
+    save_prediction:                (Bool)      (optional)
 
     Return
     ======
-    (list) :
+    (list): success rate for each probability of error.
+    (list): rate of which ground states was left
+    (list): average number of steps
+    (list): mean q-value
+    (list): syndroms that failed to complete
+    (list): list of floats representing the probability of generating an error
+            in the environment for which the model was tested on.
     """
+#    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, failure_rate, prediction_list_p_error
+
     # load network for prediction and set eval mode 
     if PATH != None:
         model = load_network(PATH)
@@ -82,14 +106,14 @@ def evalutate(self, env, grid_shift, device, num_of_predictions=1, num_actions=3
                 failed_syndroms.append(init_qubit_state)
                 failed_syndroms.append(env.toric.qubit_matrix)
 
-        success_rate = (num_of_predictions - np.sum(error_corrected)) / num_of_predictions
+        success_rate = (num_of_predictions - np.sum(error_corrected)) / num_of_predictions # TODO: This does not make sense
         error_corrected_list[i] = success_rate
         ground_state_change = (num_of_predictions - np.sum(ground_state)) / num_of_predictions
         ground_state_list[i] =  1 - ground_state_change
         average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
         mean_q_list[i] = np.round(mean_q_per_p_error, 3)
 
-    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, ground_state_list, prediction_list_p_error, failure_rate
+    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, failure_rate
 
 
 

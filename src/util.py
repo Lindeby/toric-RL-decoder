@@ -33,7 +33,7 @@ def pad_circular(x, pad):
     return x
 
 
-def incremental_mean(x, mu, N):
+def incrementalMean(x, mu, N):
     return mu + (x - mu) / (N)
 
 
