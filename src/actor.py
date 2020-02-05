@@ -56,7 +56,7 @@ def actor(rank, world_size, args):
 
     # local buffer of fixed size to store transitions before sending
     local_buffer = [None] * args["size_local_memory_buffer"]
-    q_value_buffer = [None] * args["size_local_memory_buffer"]
+    q_values_buffer = [None] * args["size_local_memory_buffer"]
 
     # set network to eval mode
     model = args["model"]
@@ -116,7 +116,7 @@ def actor(rank, world_size, args):
                                         terminal_state)
 
         local_buffer[local_memory_index] = transition
-        q_values_buffer[local_memory_index] = q_value
+        q_values_buffer[local_memory_index] = q_values
 
         if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
             # disregard lates transition since it has no next state to compute priority for
