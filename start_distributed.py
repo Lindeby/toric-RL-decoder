@@ -51,7 +51,7 @@ dl.train(training_steps = 50,
         no_actors = 1,
         learning_rate = 0.00025,
         epsilons = epsilons,
-        batch_size = 16,
+        batch_size = 4,
         policy_update = 100,
         discount_factor = 0.9)
 
