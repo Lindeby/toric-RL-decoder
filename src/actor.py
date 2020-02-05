@@ -27,11 +27,13 @@ def actor(rank, world_size, args):
             "device",
             "epsilon",
             "con_receive_weights"
+            "transition_queue_to_memory"
             }
     """
      
     con_receive_weights = args["con_receive_weights"]
-    transition_queue = args["transition_queue"]
+    transition_queue_to_memory = args["transition_queue_to_memory"] 
+            
     device = args["device"]
     
     # set network to eval mode
@@ -70,8 +72,9 @@ def actor(rank, world_size, args):
     steps_per_episode = 0
     terminal_state = False
    
-    # main loop over training steps 
-    for iteration in range(args["train_steps"]):
+    # main loop over training steps
+    while True: 
+    #for iteration in range(args["train_steps"]):
 
         #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
@@ -106,19 +109,16 @@ def actor(rank, world_size, args):
             normalized_weights = weights*(1/torch.max(weights))
             priorities *= normalized_weights
 
-            to_send = [*zip(local_buffer, priorities)]
-            print("send_to")
-            print(send_to)
+            to_send = [*zip(local_buffer, priorities.cpu().numpy())]
             # send buffer to learner
-            transition_queue.put(to_send)
-
+            transition_queue_to_memory.put(to_send)
             local_memory_index = 0
         else:
             local_memory_index += 1
 
         # if new weights are available, update network
-        if not weight_queue.empty():
-            w = weight_queue.get()
+        if con_receive_weights.poll():
+            weights = con_receive_weights.recv()
             vector_to_parameters(weights, model.parameters())
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
@@ -210,8 +210,12 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
     for state in next_state_batch:
         perspectives = generatePerspective(grid_shift, system_size, state)
 
-        perspectives = Perspective(*zip(*perspectives))
-        batch_perspectives = np.array(perspectives.perspective)
+        #perspectives = Perspective(*zip(*perspectives))
+        #print(perspectives)
+        
+        perspectives, positions = zip(*perspectives) 
+        batch_perspectives = np.array(perspectives)
+        #batch_perspectives = np.array(perspectives.perspective)
         batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor').to(device)
 
         with torch.no_grad():

@@ -10,7 +10,7 @@ import numpy as np
 
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
-
+import time
 
 #def learner(rank, world_size, weight_queue, transition_queue, args):
 def learner(rank, world_size, args):
@@ -42,7 +42,7 @@ def learner(rank, world_size, args):
     transition_queue = args["transition_queue"]
     device = args["device"]
     replay_memory = args["replay_memory"]
-
+    train_steps = args["train_steps"]
     policy_net = args["policy_net"]
     target_net = args["target_net"]
     discount_factor = args["discount_factor"]
@@ -113,7 +113,9 @@ def learner(rank, world_size, args):
     weights = policy_net.state_dict()
     for actor in range(world_size-2):
         con_send_weights[actor].send(weights)
-
+    
+    while True:
+        time.sleep(1)
 
     # Wait until replay memory has enough transitions for one batch
     while transition_queue_from_memory.empty():

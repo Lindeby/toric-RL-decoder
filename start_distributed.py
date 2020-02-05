@@ -38,10 +38,10 @@ dl = Distributed(policy_net = NETWORK,
                  target_net = NETWORK,
                  device = device,
                  optimizer  = 'Adam',
-                 replay_size= 100,
+                 replay_size= 10,
                  alpha = 0.6,
                  beta = 0.4,
-                 memory_batch_size = 32,
+                 memory_batch_size = 4,
                  env = toric_enviroment
                  )
 
