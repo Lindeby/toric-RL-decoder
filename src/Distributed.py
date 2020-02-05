@@ -53,14 +53,12 @@ def experienceReplayBuffer(rank,
                 if i == 0:
                     print(priority[i])
                 memory.save(transition[i], priority[i])
-            
         
         #Sample batch of transitions to learner
         for _ in range(10):
             transition, _, indices = memory.sample(batch_size, beta)
             if(transition == None):
                 break;
-            #print(transition)
             transition_queue_from_memory.put((transition, indices))
 
         for _ in range(10):
@@ -69,6 +67,7 @@ def experienceReplayBuffer(rank,
             
             indices, priorities = update_priorities_queue_to_memory.get()
             memory.priority_update(indices, priorities)
+
             
 
 
@@ -95,8 +94,8 @@ class Distributed():
         self.target_net = target_net
         self.target_net = self.target_net.to(self.device)
 
-        self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) # TODO: temp size, alpha
-        
+        self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) # TODO: temp size, alphu
+        self.grid_shift = int(env.system_size/2)
 
     def train(self, training_steps, no_actors, learning_rate, epsilons, batch_size, policy_update, discount_factor):
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
@@ -139,7 +138,9 @@ class Distributed():
                 "transition_queue":transition_queue,
                 "transition_queue_from_memory":transition_queue_from_memory,
                 "update_priorities_queue_to_memory":update_priorities_queue_to_memory,
-                "con_send_weights":con_send_weights
+                "con_send_weights":con_send_weights,
+                "system_size":self.env.system_size,
+                "grid_shift":self.grid_shift
                 }
          
         learner_process = Process(target=self._init_process, 
@@ -158,7 +159,7 @@ class Distributed():
                 "beta":self.beta,
                 "batch_size":self.memory_batch_size,
                 "transition_queue_to_memory":transition_queue_to_memory,
-                "transition_queue_form_memory":transition_queue_from_memory,
+                "transition_queue_from_memory":transition_queue_from_memory,
                 "update_priorities_queue_to_memory":update_priorities_queue_to_memory
                 }
         

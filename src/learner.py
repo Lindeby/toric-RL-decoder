@@ -33,7 +33,9 @@ def learner(rank, world_size, args):
             "discount_factor",
             "con_send_weights",
             "transition_queue_from_memory",
-            update_priorities_queue_to_memory
+            "update_priorities_queue_to_memory",
+            "system_size",
+            "grid_shift"
             }
     """
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
@@ -46,6 +48,9 @@ def learner(rank, world_size, args):
     policy_net = args["policy_net"]
     target_net = args["target_net"]
     discount_factor = args["discount_factor"]
+    batch_size = args["batch_size"]
+    system_size = args["system_size"]
+    grid_shift = args["grid_shift"]
 
     def dataToBatch(data):
         """ Converts data from the replay memory to appropriate dimensions.
@@ -72,7 +77,12 @@ def learner(rank, world_size, args):
         #transitions, weights, indices = replay_memory.sample(batch_size, 0.4)
         #batch = (*zip(*data[0]))
         #indices = (*zip(*data[1]))
-        batch, index = zip(*data)
+        batch = data[0]
+        index = data[1]
+        #print("data")
+        #print(batch)
+        #while True:
+        #    time.sleep(1)
         # preprocess batch_input and batch_target_input for the network
         list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
         batch_state = toNetInput(list_state)
@@ -81,8 +91,9 @@ def learner(rank, world_size, args):
         #batch_next_state = toNetInput(batch[3])
 
         # unpack action batch
-        batch_actions = np.array(list_action)
-        batch_actions = torch.Tensor(batch_actions)
+        _, batch_action = zip(*list_action)
+        batch_actions = np.array(batch_action) -1
+        batch_actions = torch.Tensor(batch_actions).long()
         batch_actions = batch_actions.to(device)
         #batch_actions = Action(*zip(*batch[1]))
         #batch_actions = np.array(batch_actions.action) - 1
@@ -90,12 +101,11 @@ def learner(rank, world_size, args):
         #batch_actions = batch_actions.to(device) 
 
         # preprocess batch_terminal and batch reward
-        batch_terminal = from_numpy(np.array(list_terminal)).type('torch.Tensor').to(device)
+        batch_terminal = from_numpy(np.array(list_terminal)).to(device)
         #batch_terminal = from_numpy(np.array(batch[4])).type('torch.Tensor').to(device)
         batch_reward   = from_numpy(np.array(list_reward)).type('torch.Tensor').to(device)
         #batch_reward   = from_numpy(np.array(batch[2])).type('torch.Tensor').to(device)
-
-        return batch_state, batch_actions, batch_reward, batch_next_state, indices
+        return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, index
 
     # init counter
     push_new_weights = 0
@@ -112,10 +122,10 @@ def learner(rank, world_size, args):
     weights = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
     for actor in range(world_size-2):
-        con_send_weights[actor].send(weights)
+        con_send_weights[actor].send(weights.detach())
     
-    while True:
-        time.sleep(1)
+    #while True:
+    #   time.sleep(1)
 
     # Wait until replay memory has enough transitions for one batch
     while transition_queue_from_memory.empty():
@@ -128,21 +138,32 @@ def learner(rank, world_size, args):
         data = transition_queue_from_memory.get()
 
         # TODO: Everything out from here should be tenors, except indices
-        batch_state, batch_actions, batch_reward, batch_next_state, indices = dataToBatch(data)
+        batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, indices = dataToBatch(data)
 
         policy_net.train()
         target_net.eval()
 
         # compute policy net output
         policy_output = policy_net(batch_state)
+
+        #print("batch_actions")
+        #print(batch_actions)
+        #print(batch_actions.view(-1,1).squeeze(1))
+        #while True:
+        #    time.sleep(1)
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        target_output = predictMax(target_net, batch_next_state, batch_size)
+        target_output = predictMax(target_net, batch_next_state, batch_size, grid_shift, system_size, device)
         target_output = target_output.to(device)
         
+
+        print(~batch_terminal)
+        print(batch_reward)
+        print(target_output)
+        print(discount_factor)
         # compute loss and update replay memory
-        y = batch_reward + ((not batch_terminal) * discount_factor * target_output)
+        y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
         loss = criterion(y, output)
         
         # Compute priotities
@@ -181,7 +202,7 @@ def learner(rank, world_size, args):
 #     return loss.mean()
 
 
-def predictMax(model, batch_state, grid_shift, system_size, device):
+def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     """ Generates the max Q values for a batch of states.
     Params
     ======
@@ -199,7 +220,6 @@ def predictMax(model, batch_state, grid_shift, system_size, device):
     batch_output = np.zeros(batch_size)
     batch_perspectives = np.zeros(shape=(batch_size, 2, system_size, system_size))
     batch_actions = np.zeros(batch_size)
-
     for i in range(batch_size):
         if (batch_state[i].cpu().sum().item() == 0):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
