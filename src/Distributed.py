@@ -62,11 +62,11 @@ def experienceReplayBuffer(rank,
 
 class Distributed():
     
-    Transition = namedtuple('Transition',['previous_state', 
-                                          'action', 
-                                          'reward', 
-                                          'state', 
-                                          'terminal']) 
+    # Transition = namedtuple('Transition',['previous_state', 
+    #                                       'action', 
+    #                                       'reward', 
+    #                                       'state', 
+    #                                       'terminal']) 
     
     
     def __init__(self, policy_net, target_net, device, optimizer, replay_size, alpha, beta, memory_batch_size, env):

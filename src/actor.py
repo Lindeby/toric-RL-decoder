@@ -102,8 +102,7 @@ def actor(rank, world_size, args):
                                         toric_size = env.system_size,
                                         state = state,
                                         model = model,
-                                        device = device,
-                                        env = env)
+                                        device = device)
         
         state, reward, terminal_state, _ = env.step(action)
 
@@ -118,9 +117,10 @@ def actor(rank, world_size, args):
         local_buffer[local_memory_index] = transition
         q_value_buffer[local_memory_index] = q_value
 
-        # transitions tuple(np.ndarrays)
-
         if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
+            # TODO: Can be optimized by saving all q-values for each action
+            #       and then use that to compute piorities. Avoids the need
+            #       to propagate through the network again.
             priorities = computePriorities( local_buffer,
                                             q_value_buffer,
                                             grid_shift,
@@ -128,13 +128,8 @@ def actor(rank, world_size, args):
                                             device,
                                             model,
                                             args["discount_factor"])
-            weights = (1/len(priorities)*1/priorities)**args["beta"]
-            normalized_weights = weights/torch.max(weights)
-            priorities *= normalized_weights
-
-            to_send = [*zip(local_buffer, priorities.cpu())]
-            print("send_to")
-            print(send_to)
+            
+            to_send = [*zip(local_buffer, priorities.cpu().numpy())]
             # send buffer to learner
             transition_queue.put(to_send)
 

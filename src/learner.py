@@ -143,12 +143,9 @@ def learner(rank, world_size, args):
         y = batch_reward + ((not batch_terminal) * discount_factor * target_output)
         loss = criterion(y, output)
         
-        # Compute priotities # TODO Verify
-        priorities = loss.cpu() # biased
-        w = (1/len(priorities)*1/priorities)**args["beta"]
-        w = w*(1/torch.max(w)) # normalise
-        priorities *= w # weighted priorities
-
+        # Compute priotities
+        priorities = loss.cpu()
+        
         optimizer.zero_grad()
         loss = loss.mean()
 
@@ -156,7 +153,7 @@ def learner(rank, world_size, args):
         loss.backward()
         optimizer.step()
 
-        update_priorities_queue_to_memory.put([*zip(priorities, indices)])
+        update_priorities_queue_to_memory.put([*zip(priorities.cpu().numpy(), indices)])
 
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:

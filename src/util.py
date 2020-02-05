@@ -17,6 +17,13 @@ Transition = namedtuple('Transition',
 def conv_to_fully_connected(input_size, filter_size, padding, stride):
     return (input_size - filter_size + 2 * padding)/ stride + 1
 
+def load_network(PATH, device):
+    model = torch.load(PATH, map_location='cpu')
+    model = model.to(device)
+    return model
+
+def save_network(model, PATH):
+    torch.save(model, PATH)
 
 def pad_circular(x, pad):
     x = torch.cat([x, x[:,:,:,0:pad]], dim=3)
