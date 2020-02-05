@@ -43,13 +43,25 @@ def experienceReplayBuffer(rank,
             if transition_queue_to_memory.empty():
                 break
             
-            transition, priority = transition_queue_to_memory.get()
-            memory.save(transition,priority)
+            #transition, priority = transition_queue_to_memory.get()
+            back = transition_queue_to_memory.get()
 
+            #state, action, reward, next_state, terminal, priority = zip(*back)
+            transition, priority = zip(*back)
+            
+            for i in range(len(back)):
+                if i == 0:
+                    print(priority[i])
+                memory.save(transition[i], priority[i])
+            
+        
         #Sample batch of transitions to learner
         for _ in range(10):
             transition, _, indices = memory.sample(batch_size, beta)
-            transition_queue_from_memory.put([transition, indices])
+            if(transition == None):
+                break;
+            #print(transition)
+            transition_queue_from_memory.put((transition, indices))
 
         for _ in range(10):
             if update_priorities_queue_to_memory.empty():
@@ -167,14 +179,14 @@ class Distributed():
         args = {"train_steps": training_steps, 
                 "max_actions_per_episode":5, 
                 "update_policy":policy_update,
-                "size_local_memory_buffer":50, 
+                "size_local_memory_buffer":5, 
                 "min_qubit_errors":0, 
                 "model":self.policy_net,
                 "env":self.env,
                 "device":self.device,
                 "beta": 1,
                 "discount_factor":discount_factor,
-                "transition_queue":transition_queue
+                "transition_queue_to_memory":transition_queue_to_memory
                 }
     
         for rank in range(no_actors):
