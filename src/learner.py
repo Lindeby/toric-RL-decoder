@@ -109,8 +109,8 @@ def learner(rank, world_size, args):
     
 
     # Push initial network params
-    # weights = parameters_to_vector(policy_net.parameters()) 
-    weights = policy_net.state_dict()
+    weights = parameters_to_vector(policy_net.parameters()) 
+    # weights = policy_net.state_dict()
     for actor in range(world_size-2):
         con_send_weights[actor].send(weights)
     

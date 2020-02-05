@@ -42,7 +42,7 @@ def generatePerspective(grid_shift, toric_size, state):
     ======
     grid_shift: (int)
     toric_size: (int)
-    state: (np.ndarray)
+    state:      (np.ndarray)
 
     Return
     ======

@@ -16,9 +16,7 @@ from .ReplayMemory import PrioritizedReplayMemory
 def experienceReplayBuffer(rank, 
                           worl_size, 
                           args):
-    
-    """
-        
+    """ 
         args = {"capacity",
                 "alpha",
                 "beta",
@@ -30,7 +28,7 @@ def experienceReplayBuffer(rank,
     """
    
     transition_queue_to_memory = args["transition_queue_to_memory"]
-    transition_queue_from_memory = args["transition_queue_form_memory"]
+    transition_queue_from_memory = args["transition_queue_from_memory"]
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     capacity = args["capacity"]
     alpha = args["alpha"]
@@ -101,7 +99,6 @@ class Distributed():
         
 
     def train(self, training_steps, no_actors, learning_rate, epsilons, batch_size, policy_update, discount_factor):
-        print("start training")
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         processes = []
 
@@ -165,6 +162,7 @@ class Distributed():
                 "update_priorities_queue_to_memory":update_priorities_queue_to_memory
                 }
         
+        print("Memory Proces")
         memmory_process = Process(target = self._init_process,
                                   args=(1, 
                                         world_size,

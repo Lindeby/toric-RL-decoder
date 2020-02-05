@@ -3,7 +3,7 @@ import torch
 import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
-# other
+# python lib
 import numpy as np 
 import random
 # from file 
@@ -15,31 +15,55 @@ from src.nn.torch.NN import NN_17
 
 
 def actor(rank, world_size, args):
-    print("actor")
-    """ 
-    args = {"train_steps", 
-            "max_actions_per_episode", 
-            "update_policy",
-            "size_local_memory_buffer", 
-            "min_qubit_errors", 
-            "model",
-            "env",
-            "device",
-            "epsilon",
-            "con_receive_weights"
-            "transition_queue_to_memory"
-            }
+    """ An actor that performs actions in an environment.
+
+    Params
+    ======
+    rank:       (int) rank of the actor in a multiprocessing setting.
+    world_size: (int) total number of actors and learners.
+    args:       (dict) training specific parameters 
+    {
+        train_steps:                (int) number of training steps
+        , max_actions_per_episode:  (int) number of actions before
+                                    the episode is cut short
+        , update_policy:            (int) (depricated) number of 
+                                    steps until updating policy
+        , size_local_memory_buffer: (int) size of the local replay buffer
+        , min_qubit_errors:         (int) minumum number of qbit 
+                                    errors on the toric code
+        , model:                    (torch.nn) model to make predictions
+        , env:                      (gym.Env) environment to act in
+        , device:                   (String) {"cpu", "cuda"} device to
+                                    operate whenever possible
+        , epsilon:                  (float) probability of selecting a
+                                    random action
+        , beta:                     (float) parameter to determin the
+                                    level of compensation for bias when
+                                    computing priorities
+        , con_receive_weights:      (multiprocessing.Connection) connection
+                                    where new weights are received
+        , transition_queue:         (multiprocessing.Queue) SimpleQueue where
+                                    transitions are sent to replay buffer
+    }
+
     """
      
+    # queues
     con_receive_weights = args["con_receive_weights"]
     transition_queue_to_memory = args["transition_queue_to_memory"] 
             
     device = args["device"]
-    
+
+    # local buffer of fixed size to store transitions before sending
+    local_buffer = [None] * args["size_local_memory_buffer"]
+    q_value_buffer = [None] * args["size_local_memory_buffer"]
+
     # set network to eval mode
     model = args["model"]
+    model.to(device)
     model.eval()
     
+    # env and env params
     env = args["env"]
     no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
@@ -48,26 +72,20 @@ def actor(rank, world_size, args):
     weights = None
     while weights == None:
         print("recieve weights")
-        weights = con_receive_weights.recv()
+        weights = con_receive_weights.recv() # blocking op
         print("done receiving weights")
-        #if not weight_queue.empty():
-        #    weights = weight_queue.get()
 
 
     # load weights
-    # vector_to_parameters(weights, model.parameters())
-    model.load_state_dict(weights)
+    vector_to_parameters(weights, model.parameters())
+    # model.load_state_dict(weights)
 
     # init counters
     steps_counter = 0
     update_counter = 1
-
-    # local buffer of fixed size to store transitions before sending
-    local_buffer = [None] * args["size_local_memory_buffer"]
-    q_value_buffer = [None] * args["size_local_memory_buffer"]
-
     local_memory_index = 0
     
+    # startup
     state = env.reset()
     steps_per_episode = 0
     terminal_state = False
@@ -76,37 +94,44 @@ def actor(rank, world_size, args):
     while True: 
     #for iteration in range(args["train_steps"]):
 
-        #steps_counter += 1 # Just use iteration
         steps_per_episode += 1
         previous_state = state
         
         # select action using epsilon greedy policy
         action, q_value = select_action(number_of_actions=no_actions,
-                                    epsilon=args["epsilon"], 
-                                    grid_shift=grid_shift,
-                                    toric_size = env.system_size,
-                                    state = state,
-                                    model = model,
-                                    device = device,
-                                    env = env)
+                                        epsilon=args["epsilon"], 
+                                        grid_shift=grid_shift,
+                                        toric_size = env.system_size,
+                                        state = state,
+                                        model = model,
+                                        device = device,
+                                        env = env)
         
         state, reward, terminal_state, _ = env.step(action)
 
         # generate transition to store in local memory buffer
         transition = generateTransition(action,
-                                            reward,
-                                            grid_shift,
-                                            previous_state,
-                                            state,
-                                            terminal_state)
+                                        reward,
+                                        grid_shift,
+                                        previous_state,
+                                        state,
+                                        terminal_state)
 
         local_buffer[local_memory_index] = transition
         q_value_buffer[local_memory_index] = q_value
 
-        if (local_memory_index >= (args["size_local_memory_buffer"]-1)):
-            priorities = computePriorities(local_buffer, q_value_buffer, grid_shift, env.system_size, device, model,args["discount_factor"])
+        # transitions tuple(np.ndarrays)
+
+        if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
+            priorities = computePriorities( local_buffer,
+                                            q_value_buffer,
+                                            grid_shift,
+                                            env.system_size,
+                                            device,
+                                            model,
+                                            args["discount_factor"])
             weights = (1/len(priorities)*1/priorities)**args["beta"]
-            normalized_weights = weights*(1/torch.max(weights))
+            normalized_weights = weights/torch.max(weights)
             priorities *= normalized_weights
 
             to_send = [*zip(local_buffer, priorities.cpu().numpy())]
@@ -128,15 +153,31 @@ def actor(rank, world_size, args):
             
 
 def select_action(number_of_actions, epsilon, grid_shift,
-                    toric_size, state, model, device, env):
+                    toric_size, state, model, device):
+    """ Selects an action according to a epsilon-greedy policy.
+
+    Params
+    ======
+    number_actions: (int)
+    epsilon:        (float)
+    grid_shift:     (int)
+    toric_size:     (int)
+    state:          (np.ndarray)
+    model:          (torch.nn)
+    device:         (String) {"cpu", "cuda"}
+
+    Return
+    ======
+    (tuple(np.array, float)) selected action and its q_value
+    """
     # set network in evluation mode 
     model.eval()
+
     # generate perspectives 
     perspectives = generatePerspective(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
-    # preprocess batch of perspectives and actions
 
-    #print(perspectives) 
+    # preprocess batch of perspectives and actions
     perspectives = Perspective(*zip(*perspectives))
     batch_perspectives = np.array(perspectives.perspective)
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
@@ -182,18 +223,19 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
 
     Parameters
     ==========
-    local_buffer: (list) local transitions from the actor
-    q_value_buffer: (list) q values of taken steps
-    grid_shift: (int) grid shift of the toric code
-    device: (string) cpu/gpu
-    model: (torch.nn) model to compute the q value for the best action
-    discount_factor: (float) discount future rewards
+    local_buffer:        (list) local transitions from the actor
+    q_value_buffer:     (list) q values of taken steps
+    grid_shift:         (int) grid shift of the toric code
+    device:             (string) {"cpu", "cuda"}
+    model:              (torch.nn) model to compute the q value
+                        for the best action
+    discount_factor:    (float) discount future rewards
 
     Returns
     =======
-    (torch.Tensor) Initial (biased) priorities
+    (torch.Tensor) absolute TD error.
     """
-    
+
     def toNetInput(batch, device):
         batch_input = np.stack(batch, axis=0)
         # from np to tensor
@@ -221,7 +263,7 @@ def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, dev
         with torch.no_grad():
             output = model(batch_perspectives)
             q_values_table = np.array(output.cpu())
-            row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape)#np.where(q_values_table == np.max(q_values_table)) 
+            row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
             perspective = row
             max_q_action = col + 1
             max_q_value = q_values_table[row, col]
@@ -240,7 +282,21 @@ def generateTransition( action,
                         state,            #   Current state    
                         terminal_state    #   True/False
                         ):
-    
+    """ Generates a transition tuple to be stored in the replay memory.
+
+    Params
+    ======
+    action:         (np.array)
+    reward:         (float)
+    grid_shift:     (int)
+    previous_state: (np.ndarry)
+    state:          (np.ndarray)
+    terminal_state: (bool)
+
+    Return
+    ======
+    (tuple) a tuple to be stored in the replay buffer.
+    """
 
     qubit_matrix = action[0]
     row = action[1]
@@ -255,21 +311,3 @@ def generateTransition( action,
         perspective = rotate_state(perspective)
         action = Action((1, grid_shift, grid_shift), add_operator)
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
-
-
-#def rotate_state(state):
-#        vertex_matrix = state[0,:,:]
-#        plaquette_matrix = state[1,:,:]
-#        rot_plaquette_matrix = np.rot90(plaquette_matrix)
-#        rot_vertex_matrix = np.rot90(vertex_matrix)
-#        rot_vertex_matrix = np.roll(rot_vertex_matrix, 1, axis=0)
-#        rot_state = np.stack((rot_vertex_matrix, rot_plaquette_matrix), axis=0)
-#        return rot_state 
-#
-#    
-#def shift_state(row, col, previous_state, state, grid_shift):
-#        previous_perspective = np.roll(previous_state, grid_shift-row, axis=1)
-#        previous_perspective = np.roll(previous_perspective, grid_shift-col, axis=2)
-#        perspective = np.roll(state, grid_shift-row, axis=1)
-#        perspective = np.roll(perspective, grid_shift-col, axis=2)
-#        return previous_perspective, perspective
