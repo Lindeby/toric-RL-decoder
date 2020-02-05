@@ -13,9 +13,7 @@ from .actor import actor
 from .ReplayMemory import PrioritizedReplayMemory
 
 
-def experienceReplayBuffer(rank, 
-                          worl_size, 
-                          args):
+def experienceReplayBuffer(rank, world_size, args):
     """ 
         args = {"capacity",
                 "alpha",

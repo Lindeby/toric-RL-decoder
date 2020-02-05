@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
+import torch.utils.tensorboard as tb
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 # other
@@ -10,6 +11,9 @@ import numpy as np
 
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
+# from evaluation import evaluate
+
+# debuging
 import time
 
 #def learner(rank, world_size, weight_queue, transition_queue, args):
@@ -17,27 +21,32 @@ def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
     new network params to actors. Additionally, this function collects the transitions
     in the queue from the actors and manages the replay buffer.
+
+    Params
+    ======
+    rank:           (int)
+    world_size:     (int)
+    args: (dict) 
+    {
+        no_actors:                          (int)
+        train_steps:                        (int)
+        batch_size:                         (int)
+        optimizer:                          (String)
+        policy_net:                         (torch.nn)
+        target_net:                         (torch.nn)
+        learning_rate:                      (float)
+        device:                             (String) {"cpu", "cuda"}
+        policy_update:                      (int)
+        replay_memory:                      (obj)
+        discount_factor:                    (float)
+        con_send_weights:                   (multiprocessing.Connection)
+        transition_queue_from_memory:       (multiprocessing.Queue) SimpleQueue
+        update_priorities_queue_to_memory:  (multiprocessing.Queue) SimpleQueue
+        env:                                (gym.Env) for evaluating the policy.
+        grid_shift:                         (int) for evaluating the policy.
+    }
     """
 
-    """ 
-    args = {"no_actors",
-            "train_steps",
-            "batch_size",
-            "optimizer",
-            "policy_net",
-            "target_net",
-            "learning_rate",
-            "device",
-            "policy_update",
-            "replay_memory",
-            "discount_factor",
-            "con_send_weights",
-            "transition_queue_from_memory",
-            "update_priorities_queue_to_memory",
-            "system_size",
-            "grid_shift"
-            }
-    """
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     transition_queue_from_memory = args["transition_queue_from_memory"]
     con_send_weights = args["con_send_weights"]
@@ -51,6 +60,10 @@ def learner(rank, world_size, args):
     batch_size = args["batch_size"]
     system_size = args["system_size"]
     grid_shift = args["grid_shift"]
+
+    # Tensorboard
+    # tensor_board = tb.SummaryWriter(log_dir="../runs/")
+
 
     def dataToBatch(data):
         """ Converts data from the replay memory to appropriate dimensions.
@@ -185,7 +198,12 @@ def learner(rank, world_size, args):
                 con_send_weights[actor].send(weights.detach())
             push_new_weights = 0
 
-        # TODO: periodically evaluate network
+        # write to tensorboard
+        #  tensor_boaord.writer.add_scalar('Loss', loss, t)
+
+    # training done
+    # TODO: save network
+
 
 
 # def getLoss(self, criterion, optimizer, y, output, weights, indices):
