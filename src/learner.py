@@ -8,7 +8,6 @@ from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 # other
 import numpy as np
-
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
 # from evaluation import evaluate
@@ -71,7 +70,7 @@ def learner(rank, world_size, args):
         Params
         ======
         data: () Data from the replay buffer queue. Each item is a tuple of
-                 (('state', 'action', 'reward', 'next_state', 'terminal'), index, weight)
+                 (('state', 'action', 'reward', 'next_state', 'terminal'), weight, index)
         Returns
         =======
         """
@@ -90,10 +89,6 @@ def learner(rank, world_size, args):
         batch = data[0]
         weights = data[1]
         index = data[2]
-        #print("data")
-        #print(batch)
-        #while True:
-        #    time.sleep(1)
         # preprocess batch_input and batch_target_input for the network
         list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
         batch_action = Action(*zip(*list_action))
@@ -136,8 +131,6 @@ def learner(rank, world_size, args):
     for actor in range(world_size-2):
         con_send_weights[actor].send(weights.detach())
     
-    #while True:
-    #   time.sleep(1)
 
     # Wait until replay memory has enough transitions for one batch
     while transition_queue_from_memory.empty():
@@ -151,18 +144,13 @@ def learner(rank, world_size, args):
 
         # TODO: Everything out from here should be tenors, except indices
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data)
-
+        
         policy_net.train()
         target_net.eval()
 
         # compute policy net output
         policy_output = policy_net(batch_state)
-
-        #print("batch_actions")
-        #print(batch_actions)
-        #print(batch_actions.view(-1,1).squeeze(1))
-        #while True:
-        #    time.sleep(1)
+    
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output

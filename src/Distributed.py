@@ -34,6 +34,7 @@ def experienceReplayBuffer(rank, world_size, args):
     batch_size = args["batch_size"]
     memory = PrioritizedReplayMemory(capacity, alpha)
 
+
     while(True):
 
         #Receive transitions from actors
@@ -48,8 +49,6 @@ def experienceReplayBuffer(rank, world_size, args):
             transition, priority = zip(*back)
             
             for i in range(len(back)):
-                if i == 0:
-                    print(priority[i])
                 memory.save(transition[i], priority[i])
         
         #Sample batch of transitions to learner
@@ -57,6 +56,7 @@ def experienceReplayBuffer(rank, world_size, args):
             transition, weights, indices = memory.sample(batch_size, beta)
             if(transition == None):
                 break;
+
             transition_queue_from_memory.put((transition, weights, indices))
 
         for _ in range(10):
@@ -65,7 +65,7 @@ def experienceReplayBuffer(rank, world_size, args):
             
             #indices, priorities = update_priorities_queue_to_memory.get()
             update = update_priorities_queue_to_memory.get()
-            indices, priorities = zip(*update)
+            priorities, indices = zip(*update)
             memory.priority_update(indices, priorities)
 
             
