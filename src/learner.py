@@ -99,7 +99,7 @@ def learner(rank, world_size, args):
         #batch_next_state = toNetInput(batch[3])
 
         # unpack action batch
-        batch_actions = np.array(batch_action.action) -1
+        batch_actions = np.array(batch_action.action) 
         batch_actions = torch.Tensor(batch_actions).long()
         batch_actions = batch_actions.to(device)
         #batch_actions = Action(*zip(*batch[1]))
@@ -138,7 +138,7 @@ def learner(rank, world_size, args):
 
     # Start training
     for t in range(train_steps):
-        print("learner: traning step: ",t," / ",train_steps)
+        print("learner: traning step: ",t+1," / ",train_steps)
 
         data = transition_queue_from_memory.get()
 
@@ -150,7 +150,6 @@ def learner(rank, world_size, args):
 
         # compute policy net output
         policy_output = policy_net(batch_state)
-    
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
