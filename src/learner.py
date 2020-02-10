@@ -27,22 +27,37 @@ def learner(rank, world_size, args):
     world_size:     (int)
     args: (dict) 
     {
-        no_actors:                          (int)
-        train_steps:                        (int)
-        batch_size:                         (int)
-        optimizer:                          (String)
-        policy_net:                         (torch.nn)
-        target_net:                         (torch.nn)
-        learning_rate:                      (float)
-        device:                             (String) {"cpu", "cuda"}
-        policy_update:                      (int)
-        replay_memory:                      (obj)
-        discount_factor:                    (float)
-        con_send_weights:                   (multiprocessing.Connection)
-        transition_queue_from_memory:       (multiprocessing.Queue) SimpleQueue
-        update_priorities_queue_to_memory:  (multiprocessing.Queue) SimpleQueue
-        env:                                (gym.Env) for evaluating the policy.
-        grid_shift:                         (int) for evaluating the policy.
+        no_actors:                            (int)
+        , train_steps:                        (int)
+        , batch_size:                         (int)
+        , optimizer:                          (String)
+        , policy_net:                         (torch.nn)
+        , policy_config:                      (dict)
+        {
+            system_size:        (int) size of the toric grid.
+            , number_of_actions (int)
+        }
+        , target_net:                         (torch.nn)
+        , target_config:                      (dict)
+        {
+            system_size:        (int) size of the toric grid.
+            , number_of_actions (int)
+        }
+        , learning_rate:                      (float)
+        , device:                             (String) {"cpu", "cuda"}
+        , policy_update:                      (int)
+        , replay_memory:                      (obj)
+        , discount_factor:                    (float)
+        , con_send_weights:                   (multiprocessing.Connection)
+        , transition_queue_from_memory:       (multiprocessing.Queue) SimpleQueue
+        , update_priorities_queue_to_memory:  (multiprocessing.Queue) SimpleQueue
+        , env:                                (String) for evaluating the policy.
+        , env_config:                         (dict)
+        {
+            size:               (int)
+            , min_qbit_errors   (int)
+            , p_error           (float)
+        }
     }
     """
 
@@ -53,12 +68,23 @@ def learner(rank, world_size, args):
     device = args["device"]
     replay_memory = args["replay_memory"]
     train_steps = args["train_steps"]
-    policy_net = args["policy_net"]
-    target_net = args["target_net"]
     discount_factor = args["discount_factor"]
     batch_size = args["batch_size"]
-    system_size = args["system_size"]
-    grid_shift = args["grid_shift"]
+    
+    env_config = args["env_config"]
+    system_size = env_config["size"]
+    grid_shift = int(system_size/2)
+
+
+    # Init nets
+    policy_class = args["policy_net"]
+    policy_config = args["policy_config"] 
+    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    
+    target_class = args["target_net"]
+    target_config = args["target_config"] 
+    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    
 
     # Tensorboard
     # tensor_board = tb.SummaryWriter(log_dir="../runs/")
@@ -83,35 +109,26 @@ def learner(rank, world_size, args):
             return tensor.to(device)
 
         # get transitions and unpack them to minibatch
-        #transitions, weights, indices = replay_memory.sample(batch_size, 0.4)
-        #batch = (*zip(*data[0]))
-        #indices = (*zip(*data[1]))
         batch = data[0]
         weights = data[1]
         index = data[2]
+
         # preprocess batch_input and batch_target_input for the network
         list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
-        batch_action = Action(*zip(*list_action))
 
         batch_state = toNetInput(list_state)
-        #batch_state = toNetInput(batch[0])
         batch_next_state = toNetInput(list_next_state)
-        #batch_next_state = toNetInput(batch[3])
 
         # unpack action batch
-        batch_actions = np.array(batch_action.action) 
+        batch_action = Action(*zip(*list_action))
+        batch_actions = np.array(batch_action.action) - 1 # -1 to compensate for env action index
         batch_actions = torch.Tensor(batch_actions).long()
         batch_actions = batch_actions.to(device)
-        #batch_actions = Action(*zip(*batch[1]))
-        #batch_actions = np.array(batch_actions.action) - 1
-        #batch_actions = torch.Tensor(batch_actions).long()
-        #batch_actions = batch_actions.to(device) 
 
         # preprocess batch_terminal and batch reward
         batch_terminal = from_numpy(np.array(list_terminal)).to(device)
-        #batch_terminal = from_numpy(np.array(batch[4])).type('torch.Tensor').to(device)
         batch_reward   = from_numpy(np.array(list_reward)).type('torch.Tensor').to(device)
-        #batch_reward   = from_numpy(np.array(batch[2])).type('torch.Tensor').to(device)
+
         return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, index
 
     # init counter
@@ -150,6 +167,7 @@ def learner(rank, world_size, args):
 
         # compute policy net output
         policy_output = policy_net(batch_state)
+        # TODO: Fix, batch actions sometimes contains actions 3. (Cause of error)
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output

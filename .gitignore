@@ -17,3 +17,4 @@ src/nn/torch/__pycache__
 *.swp
 *.swo
 
+debug2.py
