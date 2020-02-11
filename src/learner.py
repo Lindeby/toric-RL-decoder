@@ -157,6 +157,7 @@ def learner(rank, world_size, args):
     for t in range(train_steps):
         print("learner: traning step: ",t+1," / ",train_steps)
 
+        while transition_queue_from_memory.empty(): continue # wait until there is an item in queue
         data = transition_queue_from_memory.get()
 
         # TODO: Everything out from here should be tenors, except indices

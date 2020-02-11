@@ -33,7 +33,8 @@ def experienceReplayBuffer(rank, world_size, args):
     beta = args["beta"]
     batch_size = args["batch_size"]
     memory = PrioritizedReplayMemory(capacity, alpha)
-
+    size_before_sample = args["replay_size_before_sampling"]
+    items_in_mem = 0
 
     while(True):
 
@@ -47,26 +48,26 @@ def experienceReplayBuffer(rank, world_size, args):
 
             #state, action, reward, next_state, terminal, priority = zip(*back)
             transition, priority = zip(*back)
-            
+            items_in_mem += len(transition)
+
             for i in range(len(back)):
                 memory.save(transition[i], priority[i])
         
         #Sample batch of transitions to learner
-        for _ in range(10):
+        if items_in_mem > size_before_sample:
             transition, weights, indices = memory.sample(batch_size, beta)
-            if(transition == None):
-                break
-
             transition_queue_from_memory.put((transition, weights, indices))
+
+
 
         for _ in range(10):
             if update_priorities_queue_to_memory.empty():
                 break
             
-            #indices, priorities = update_priorities_queue_to_memory.get()
             update = update_priorities_queue_to_memory.get()
             priorities, indices = zip(*update)
             memory.priority_update(indices, priorities)
+
 
             
 
@@ -119,8 +120,10 @@ class Distributed():
                     policy_update, 
                     discount_factor,
                     max_actions_per_episode,
-                    size_local_memory_buffer
+                    size_local_memory_buffer,
+                    replay_size_before_sample = None
                     ):
+        
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         processes = []
 
@@ -186,7 +189,8 @@ class Distributed():
             "batch_size"                        :self.memory_batch_size,
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
-            "update_priorities_queue_to_memory" :update_priorities_queue_to_memory
+            "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
+            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25))
             }
         
         print("Memory Process")
