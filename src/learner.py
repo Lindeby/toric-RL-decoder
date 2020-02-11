@@ -117,6 +117,8 @@ def learner(rank, world_size, args):
         weights = data[1]
         index = data[2]
 
+        weights = from_numpy(np.array(weights)).type('torch.Tensor').to(device)
+
         # preprocess batch_input and batch_target_input for the network
         list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
 
@@ -147,10 +149,10 @@ def learner(rank, world_size, args):
     
 
     # Push initial network params
-    weights = parameters_to_vector(policy_net.parameters()) 
+    params = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
     for actor in range(world_size-2):
-        msg = ("weights", weights.detach())
+        msg = ("weights", params.detach())
         con_actors[actor].send(msg)
     
 
@@ -173,7 +175,6 @@ def learner(rank, world_size, args):
 
         # compute policy net output
         policy_output = policy_net(batch_state)
-        # TODO: Fix, batch actions sometimes contains actions 3. (Cause of error)
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
@@ -184,8 +185,9 @@ def learner(rank, world_size, args):
         y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
         loss = criterion(y, policy_output)
         
-        # Compute priotities
-        priorities = loss.cpu() #TODO: priorities = np.absolute(weights * loss.cpu())
+        # Compute priorities
+        priorities = weights * loss.cpu()
+        priorities = np.absolute(priorities.detach().numpy())
         
         optimizer.zero_grad()
         loss = loss.mean()
@@ -194,12 +196,12 @@ def learner(rank, world_size, args):
         loss.backward()
         optimizer.step()
 
-        update_priorities_queue_to_memory.put([*zip(priorities.detach().numpy(), indices)])
+        update_priorities_queue_to_memory.put([*zip(priorities, indices)])
 
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:
-            weights = parameters_to_vector(policy_net.parameters())
-            msg = ("weights", weights.detach())
+            params = parameters_to_vector(policy_net.parameters())
+            msg = ("weights", params.detach())
             for actor in range(world_size-2):
                 con_actor[actor].send(msg)
             push_new_weights = 0

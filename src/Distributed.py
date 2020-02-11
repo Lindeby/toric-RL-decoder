@@ -52,10 +52,8 @@ def experienceReplayBuffer(rank, world_size, args):
             if transition_queue_to_memory.empty():
                 break
             
-            #transition, priority = transition_queue_to_memory.get()
             back = transition_queue_to_memory.get()
 
-            #state, action, reward, next_state, terminal, priority = zip(*back)
             transition, priority = zip(*back)
             items_in_mem += len(transition)
 
