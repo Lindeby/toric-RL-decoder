@@ -6,13 +6,14 @@ from .ReplayMemory import PrioritizedReplayMemory
 # pytorch
 from torch import from_numpy
 import torch.distributed as dist
-from torch.multiprocessing import Process, SimpleQueue, Pipe
+from torch.multiprocessing import Process, SimpleQueue, Pipe, Queue
 # other files
 from .learner import learner
 from .actor import actor
 from .ReplayMemory import PrioritizedReplayMemory
 
-
+from queue import Empty
+import time
 def experienceReplayBuffer(rank, world_size, args):
     """ 
         args = {"capacity",
@@ -22,6 +23,7 @@ def experienceReplayBuffer(rank, world_size, args):
                 "transition_queue_to_memory",
                 "transition_queue_form_memory",
                 "update_priorities_queue_to_memory",
+                "con_learner"
                 }
     """
    
@@ -32,11 +34,18 @@ def experienceReplayBuffer(rank, world_size, args):
     alpha = args["alpha"]
     beta = args["beta"]
     batch_size = args["batch_size"]
+    con_learner = args["con_learner"]
     memory = PrioritizedReplayMemory(capacity, alpha)
     size_before_sample = args["replay_size_before_sampling"]
     items_in_mem = 0
 
     while(True):
+        
+        if con_learner.poll():
+            msg = con_learner.recv()
+            if msg == "prep_terminate":
+                con_learner.send("ok")
+                break
 
         #Receive transitions from actors
         for _ in range(100):
@@ -56,8 +65,9 @@ def experienceReplayBuffer(rank, world_size, args):
         #Sample batch of transitions to learner
         # TODO Push multiple items so queue to learner is atleast 5
         if items_in_mem > size_before_sample:
-            transition, weights, indices = memory.sample(batch_size, beta)
-            transition_queue_from_memory.put((transition, weights, indices))
+            while transition_queue_from_memory.qsize() < 5:
+                transition, weights, indices = memory.sample(batch_size, beta)
+                transition_queue_from_memory.put((transition, weights, indices))
 
 
 
@@ -68,10 +78,43 @@ def experienceReplayBuffer(rank, world_size, args):
             update = update_priorities_queue_to_memory.get()
             priorities, indices = zip(*update)
             memory.priority_update(indices, priorities)
+    
+    while True:
+        # Ready to terminate nothing more should be sent to learner
+        
+        # Still empty queue since actors might not have recived 
+        # instructions to terminate
+        if con_learner.poll():
+            msg = con_learner.recv()
+            if msg == "terminate":
+                # Empty queues to memory befor termination
+                try:
+                    while True:
+                        transition_queue_to_memory.get_nowait()
+                except Empty:
+                    pass
+                
+                try: 
+                    while True:
+                        update_priorities_queue_to_memory.get_nowait()
+                except Empty:
+                    pass
+
+                try:
+                    while True:
+                        transition_queue_from_memory.get_nowait()
+                except Empty:
+                    pass
 
 
+                transition_queue_from_memory.close()
+                transition_queue_to_memory.close()
+                update_priorities_queue_to_memory.close()
+                con_learner.send("ok")
+                break
+                
             
-
+    
 
 class Distributed():
         
@@ -126,23 +169,24 @@ class Distributed():
                     ):
         
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
-        processes = []
+        actor_processes = []
 
         # Communication channels between processes
-        transition_queue = SimpleQueue()
-        transition_queue_to_memory = SimpleQueue()
-        transition_queue_from_memory = SimpleQueue()
-        update_priorities_queue_to_memory = SimpleQueue()
+        transition_queue_to_memory = Queue()
+        transition_queue_from_memory = Queue()
+        update_priorities_queue_to_memory = Queue()
 
         # Communication pipes from learner to actors, one for each actor
         # For sending new network weights to the actors
         # The pipes are one way comunication (duplex = False)
-        con_recive_weights = []
-        con_send_weights = []
+        con_learner_actor = []
+        con_actor_learner = []
         for a in range(no_actors):
-            con_receive, con_send = Pipe(duplex=False)
-            con_send_weights.append(con_send)
-            con_recive_weights.append(con_receive)
+            con_1, con_2 = Pipe(duplex=True)
+            con_learner_actor.append(con_1)
+            con_actor_learner.append(con_2)
+
+        con_learner_memory, con_memory_learner = Pipe(duplex=True)
 
 
 
@@ -163,10 +207,10 @@ class Distributed():
             "target_config"                        :self.target_config,
             "device"                               :self.device,
             "replay_memory"                        :self.replay_memory,
-            "transition_queue"                     :transition_queue,
             "transition_queue_from_memory"         :transition_queue_from_memory,
             "update_priorities_queue_to_memory"    :update_priorities_queue_to_memory,
-            "con_send_weights"                     :con_send_weights,
+            "con_actors"                           :con_learner_actor,
+            "con_replay_memory"                    :con_learner_memory,
             "env"                                  :self.env,
             "env_config"                           :self.env_config
         }
@@ -178,7 +222,7 @@ class Distributed():
                                         learner, 
                                         learner_args))
         learner_process.start()
-        processes.append(learner_process)
+        #processes.append(learner_process)
         
         """
             Memory Process
@@ -191,6 +235,7 @@ class Distributed():
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
+            "con_learner"                       :con_memory_learner,
             "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25))
             }
         
@@ -202,7 +247,7 @@ class Distributed():
                                         mem_args))
 
         memmory_process.start()
-        processes.append(memmory_process)
+        #processes.append(memmory_process)
 
         """
             Actor Processes
@@ -224,7 +269,7 @@ class Distributed():
     
         for rank in range(no_actors):
             actor_args["epsilon"] = epsilons[rank]
-            actor_args["con_receive_weights"] = con_recive_weights[rank] 
+            actor_args["con_learner"] = con_actor_learner[rank] 
             
             actor_process = Process(target=self._init_process, 
                                     args=(rank+2, 
@@ -234,11 +279,14 @@ class Distributed():
 
             actor_process.start()
             print("starting actor ",(rank + 2))
-            processes.append(actor_process)
+            actor_processes.append(actor_process)
 
-        for p in processes:
-            p.join()
-            print(p, "joined")
+        for a in actor_processes:
+            a.join()
+            print(a, "joined")
+
+        memmory_process.join()
+        learner_process.join()
 
     def _init_process(self, rank, size, fn, args, backend='gloo'):
         """ Initialize the distributed environment. """

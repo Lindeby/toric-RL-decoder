@@ -54,8 +54,8 @@ def actor(rank, world_size, args):
         , beta:                     (float) parameter to determin the
                                     level of compensation for bias when
                                     computing priorities
-        , con_receive_weights:      (multiprocessing.Connection) connection
-                                    where new weights are received
+        , con_learner:              (multiprocessing.Connection) connection
+                                    where new weights are received and termination
         , transition_queue:         (multiprocessing.Queue) SimpleQueue where
                                     transitions are sent to replay buffer
     }
@@ -63,7 +63,7 @@ def actor(rank, world_size, args):
     """
      
     # queues
-    con_receive_weights = args["con_receive_weights"]
+    con_learner = args["con_learner"]
     transition_queue_to_memory = args["transition_queue_to_memory"] 
             
     device = args["device"]
@@ -90,7 +90,9 @@ def actor(rank, world_size, args):
     weights = None
     while weights == None:
         print("recieve weights")
-        weights = con_receive_weights.recv() # blocking op
+        msg, weights = con_learner.recv() # blocking op
+        if msg != "weights":
+            weights = None
         print("done receiving weights")
 
     # load weights
@@ -109,7 +111,18 @@ def actor(rank, world_size, args):
     terminal_state = False
    
     # main loop over training steps
-    for iteration in range(args["train_steps"]):
+    while True:
+    #for iteration in range(args["train_steps"]):
+        
+        if con_learner.poll():
+            msg, weights = con_learner.recv()
+            
+            if msg == "weights":
+                vector_to_parameters(weights, model.parameters())
+            
+            elif msg == "prep_terminate":
+                con_learner.send("ok")
+                break
 
         steps_per_episode += 1
         previous_state = state
@@ -148,15 +161,24 @@ def actor(rank, world_size, args):
         else:
             local_memory_index += 1
 
-        # if new weights are available, update network
-        if con_receive_weights.poll():
-            weights = con_receive_weights.recv()
-            vector_to_parameters(weights, model.parameters())
+        ## if new weights are available, update network
+        #if con_receive_weights.poll():
+        #    weights = con_receive_weights.recv()
+        #    vector_to_parameters(weights, model.parameters())
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
             state = env.reset()
             steps_per_episode = 0
             terminal_state = False
+    
+    # ready to terminate
+    while True:
+        msg, _ = con_learner.recv()
+        if msg == "terminate":
+            transition_queue_to_memory.close()
+            con_learner.send("ok")
+            break
+            
             
 
 def select_action(number_of_actions, epsilon, grid_shift,

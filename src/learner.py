@@ -15,7 +15,8 @@ from src.util import Action, Perspective, Transition, generatePerspective
 # debuging
 import time
 
-#def learner(rank, world_size, weight_queue, transition_queue, args):
+from queue import Empty
+
 def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
     new network params to actors. Additionally, this function collects the transitions
@@ -49,11 +50,13 @@ def learner(rank, world_size, args):
         , replay_memory:                      (obj)
         , discount_factor:                    (float)
         , con_send_weights:                   (multiprocessing.Connection)
-        , transition_queue_from_memory:       (multiprocessing.Queue) SimpleQueue
-        , update_priorities_queue_to_memory:  (multiprocessing.Queue) SimpleQueue
+        , transition_queue_from_memory:       (multiprocessing.Queue) Queue
+        , update_priorities_queue_to_memory:  (multiprocessing.Queue) Queue
+        , con_actors:                         Array of connections (multiprocessing.Pipe)  Pipe(Duplex = True)
+        , con_replay_memory:                  (multiprocessing.Pipe)  Pipe(Duplex = True)
         , env:                                (String) for evaluating the policy.
         , env_config:                         (dict)
-        {
+        
             size:               (int)
             , min_qbit_errors   (int)
             , p_error           (float)
@@ -63,13 +66,14 @@ def learner(rank, world_size, args):
 
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     transition_queue_from_memory = args["transition_queue_from_memory"]
-    con_send_weights = args["con_send_weights"]
-    transition_queue = args["transition_queue"]
     device = args["device"]
     replay_memory = args["replay_memory"]
     train_steps = args["train_steps"]
     discount_factor = args["discount_factor"]
     batch_size = args["batch_size"]
+
+    con_actors = args["con_actors"]
+    con_replay_memory = args["con_replay_memory"]
     
     env_config = args["env_config"]
     system_size = env_config["size"]
@@ -146,7 +150,8 @@ def learner(rank, world_size, args):
     weights = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
     for actor in range(world_size-2):
-        con_send_weights[actor].send(weights.detach())
+        msg = ("weights", weights.detach())
+        con_actors[actor].send(msg)
     
 
     # Wait until replay memory has enough transitions for one batch
@@ -194,15 +199,57 @@ def learner(rank, world_size, args):
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:
             weights = parameters_to_vector(policy_net.parameters())
+            msg = ("weights", weights.detach())
             for actor in range(world_size-2):
-                con_send_weights[actor].send(weights.detach())
+                con_actor[actor].send(msg)
             push_new_weights = 0
 
         # write to tensorboard
         #  tensor_boaord.writer.add_scalar('Loss', loss, t)
 
     # training done
+
+    # prepare replay memory for termination
+    msg = "prep_terminate"
+    con_replay_memory.send(msg)
+    #wait for acknowlage
+    back = con_replay_memory.recv()    
+    
+    # prepare actors for termination
+    msg = ("prep_terminate", None)
+    for a in range(world_size-2):
+        con_actors[a].send(msg)
+        # wait for acknowledge
+        back = con_actors[a].recv()
+    
+    # terminate actors
+    msg = ("terminate", None)
+    for a in range(world_size-2):
+        con_actors[a].send(msg)
+        # wait for acknowledge
+        back = con_actors[a].recv()
+
+
+
+    # empty and close queue before termination
+    try:
+        while True:
+            transition_queue_from_memory.get_nowait()
+    except Empty:
+        pass
+    
+    transition_queue_from_memory.close()
+    update_priorities_queue_to_memory.close()
+
+    
+    # terminate memory
+    msg = "terminate"
+    con_replay_memory.send(msg)
+    # wait for acknowlage
+    back = con_replay_memory.recv()
     # TODO: save network
+    
+    
 
 
 
