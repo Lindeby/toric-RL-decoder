@@ -3,9 +3,12 @@ import torch
 import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
+
+import gym
 # python lib
 import numpy as np 
 import random
+from copy import deepcopy
 # from file 
 from src.util import Action, Perspective, Transition, generatePerspective, rotate_state, shift_state
 
@@ -31,8 +34,19 @@ def actor(rank, world_size, args):
         , size_local_memory_buffer: (int) size of the local replay buffer
         , min_qubit_errors:         (int) minumum number of qbit 
                                     errors on the toric code
-        , model:                    (torch.nn) model to make predictions
-        , env:                      (gym.Env) environment to act in
+        , model:                    (Class torch.nn) model to make predictions
+        , model_config:             (dict)
+        {
+            system_size:        (int) size of the toric grid.
+            , number_of_actions (int)
+        }
+        , env:                      (String) environment to act in
+        , env_config                (dict)
+        {
+            size:               (int)
+            , min_qbit_errors   (int)
+            , p_error           (float)
+        }
         , device:                   (String) {"cpu", "cuda"} device to
                                     operate whenever possible
         , epsilon:                  (float) probability of selecting a
@@ -59,12 +73,16 @@ def actor(rank, world_size, args):
     q_values_buffer = [None] * args["size_local_memory_buffer"]
 
     # set network to eval mode
-    model = args["model"]
+    NN = args["model"]
+    NN_config = args["model_config"]
+
+    model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
     model.to(device)
     model.eval()
     
     # env and env params
-    env = args["env"]
+    env = gym.make(args["env"], config=args["env_config"])
+
     no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
     
@@ -75,10 +93,10 @@ def actor(rank, world_size, args):
         weights = con_receive_weights.recv() # blocking op
         print("done receiving weights")
 
-
     # load weights
     vector_to_parameters(weights, model.parameters())
     # model.load_state_dict(weights)
+
 
     # init counters
     steps_counter = 0
@@ -104,7 +122,8 @@ def actor(rank, world_size, args):
                                         state = state,
                                         model = model,
                                         device = device)
-        
+
+
         state, reward, terminal_state, _ = env.step(action)
 
         # generate transition to store in local memory buffer
@@ -182,7 +201,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
     #choose action using epsilon greedy approach
     rand = random.random()
     if(1 - epsilon > rand):
-        # select greedy action 
+        # select greedy action
         row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
         perspective = row
         max_q_action = col + 1
@@ -195,7 +214,7 @@ def select_action(number_of_actions, epsilon, grid_shift,
     # select random action
     else:
         random_perspective = random.randint(0, number_of_perspectives-1)
-        random_action = random.randint(0, number_of_actions-1)
+        random_action = random.randint(0, number_of_actions-1) +1
         action = [  batch_position_actions[random_perspective][0],
                     batch_position_actions[random_perspective][1],
                     batch_position_actions[random_perspective][2],
