@@ -54,6 +54,7 @@ def experienceReplayBuffer(rank, world_size, args):
                 memory.save(transition[i], priority[i])
         
         #Sample batch of transitions to learner
+        # TODO Push multiple items so queue to learner is atleast 5
         if items_in_mem > size_before_sample:
             transition, weights, indices = memory.sample(batch_size, beta)
             transition_queue_from_memory.put((transition, weights, indices))
