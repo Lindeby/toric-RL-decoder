@@ -101,7 +101,10 @@ class Distributed():
         self.alpha = alpha
         self.beta = beta
         self.memory_batch_size = memory_batch_size
-
+        
+        if memory_batch_size > replay_size:
+            raise ValueError("Please make sure replay memory size is larger than batch size.")
+        
         self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) 
         # self.grid_shift = int(env.system_size/2)
 
