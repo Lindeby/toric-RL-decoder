@@ -138,7 +138,7 @@ def actor(rank, world_size, args):
 
 
         state, reward, terminal_state, _ = env.step(action)
-
+        # print(action)
         # generate transition to store in local memory buffer
         transition = generateTransition(action,
                                         reward,

@@ -61,7 +61,8 @@ dl.train(training_steps = 200,
         policy_update = 100,
         discount_factor = 0.9,
         max_actions_per_episode = 10,
-        size_local_memory_buffer = 50)
+        size_local_memory_buffer = 10
+        )
 
 
 

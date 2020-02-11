@@ -36,7 +36,8 @@ def experienceReplayBuffer(rank, world_size, args):
     batch_size = args["batch_size"]
     con_learner = args["con_learner"]
     memory = PrioritizedReplayMemory(capacity, alpha)
-
+    size_before_sample = args["replay_size_before_sampling"]
+    items_in_mem = 0
 
     while(True):
         
@@ -56,24 +57,25 @@ def experienceReplayBuffer(rank, world_size, args):
 
             #state, action, reward, next_state, terminal, priority = zip(*back)
             transition, priority = zip(*back)
-            
+            items_in_mem += len(transition)
+
             for i in range(len(back)):
                 memory.save(transition[i], priority[i])
         
         #Sample batch of transitions to learner
 
-        while transition_queue_from_memory.qsize() < 10:
-            transition, weights, indices = memory.sample(batch_size, beta)
-            if(transition == None):
-                break
+        if items_in_mem > size_before_sample:
+    
+            while transition_queue_from_memory.qsize() < 5:
+                transition, weights, indices = memory.sample(batch_size, beta)
+                transition_queue_from_memory.put((transition, weights, indices))
 
-            transition_queue_from_memory.put((transition, weights, indices))
+
 
         for _ in range(10):
             if update_priorities_queue_to_memory.empty():
                 break
             
-            #indices, priorities = update_priorities_queue_to_memory.get()
             update = update_priorities_queue_to_memory.get()
             priorities, indices = zip(*update)
             memory.priority_update(indices, priorities)
@@ -104,6 +106,7 @@ def experienceReplayBuffer(rank, world_size, args):
                         transition_queue_from_memory.get_nowait()
                 except Empty:
                     pass
+
 
                 transition_queue_from_memory.close()
                 transition_queue_to_memory.close()
@@ -144,7 +147,10 @@ class Distributed():
         self.alpha = alpha
         self.beta = beta
         self.memory_batch_size = memory_batch_size
-
+        
+        if memory_batch_size > replay_size:
+            raise ValueError("Please make sure replay memory size is larger than batch size.")
+        
         self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) 
         # self.grid_shift = int(env.system_size/2)
 
@@ -159,8 +165,10 @@ class Distributed():
                     policy_update, 
                     discount_factor,
                     max_actions_per_episode,
-                    size_local_memory_buffer
+                    size_local_memory_buffer,
+                    replay_size_before_sample = None
                     ):
+        
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         actor_processes = []
 
@@ -228,7 +236,8 @@ class Distributed():
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
-            "con_learner"                       :con_memory_learner
+            "con_learner"                       :con_memory_learner,
+            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25))
             }
         
         print("Memory Process")
