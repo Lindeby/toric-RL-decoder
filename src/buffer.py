@@ -141,8 +141,8 @@ def experienceReplayBuffer(rank, world_size, args):
                 
  
 def writeToTB(tb, data, timestep, update):
-    tb.add_scalar("TransitionQueue/Avg_Over_{}_Size(fromMemory)".format(update), data[0], timestep)
-    tb.add_scalar("TransitionQueue/Avg_Over_{}_Size(toMemory)".format(update), data[1], timestep)
-    tb.add_scalar("PriorityQueue/Avg_Over_{}_Size".format(update), data[2], timestep)
+    tb.add_scalar("Queue/Avg_Over_{}_TransQ_Size(fromMemory)".format(update), data[0], timestep)
+    tb.add_scalar("Queue/Avg_Over_{}_TransQ_Size(toMemory)".format(update), data[1], timestep)
+    tb.add_scalar("Queue/Avg_Over_{}_PrioQ_Size".format(update), data[2], timestep)
 
     

@@ -220,7 +220,6 @@ def learner(rank, world_size, args):
 
         data = transition_queue_from_memory.get()
 
-        # TODO: Everything out from here should be tenors, except indices
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data)
         
         policy_net.train()
@@ -265,14 +264,21 @@ def learner(rank, world_size, args):
         sum_wait_time += wait_time
         wait_time = 0
 
+
         # eval and write to tensorboard
-        # if t % eval_freq == 0:
-            # suc_rate, gr_st, avg_no_steps, mean_q, fail_syndr, p_errs = evaluate(policy_net
-            #                                                                     , env
-            #                                                                     , grid_shift
-            #                                                                     , device
-            #                                                                     , [0.1, 0.5]                  
-            #                                                                     , num_of_predictions=10)
+        if t % eval_freq == 0 :
+            p_errors = [0.1, 0.5]
+            suc_rate, gr_st, avg_no_steps, mean_q, _ = evaluate(policy_net
+                                                                , env
+                                                                , grid_shift
+                                                                , device
+                                                                , p_errors                  
+                                                                , num_of_episodes=1)
+            for i,e in enumerate(p_errors):
+                tb.add_scalar("Eval/SuccessRate_{}".format(e), suc_rate[i], t)
+                tb.add_scalar("Eval/GroundState_{}".format(e), gr_st[i], t)
+                tb.add_scalar("Eval/AvgNoSteps_{}" .format(e), avg_no_steps[i], t)
+                tb.add_scalar("Eval/MeanQValue_{}" .format(e), mean_q[i], t)
 
         # write to tensorboard        
         if t % update_tb == 0:

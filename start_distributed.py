@@ -51,12 +51,12 @@ dl = Distributed(policy_net = NETWORK,
 
 epsilons = [0.9, 0.5]
 
-dl.train(training_steps = 100,
+dl.train(training_steps = 1000,
         no_actors = 1,
         learning_rate = 0.00025,
         epsilons = epsilons,
         beta = 1,
-        batch_size = 16,
+        batch_size = 4,
         policy_update = 10,
         discount_factor = 0.9,
         max_actions_per_episode = 10,

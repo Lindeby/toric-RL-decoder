@@ -5,7 +5,7 @@ import random, torch
 import heapq
 
 
-def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_predictions=1,
+def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_episodes=1,
     num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
     show_network=False, show_plot=False, minimum_nbr_of_qubit_errors=0, 
     print_Q_values=False, save_prediction=True):
@@ -45,6 +45,7 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_pre
     # load network for prediction and set eval mode 
     if PATH != None:
         model = load_network(PATH)
+    model.to(device)
     model.eval()
 
     # init matrices 
@@ -53,16 +54,16 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_pre
     average_number_of_steps_list = np.zeros(len(prediction_list_p_error))
     mean_q_list = np.zeros(len(prediction_list_p_error))
     failed_syndroms = []
-    failure_rate = 0
+    # failure_rate = 0
     
     # loop through different p_error
     for i, p_error in enumerate(prediction_list_p_error):
-        ground_state = np.ones(num_of_predictions, dtype=bool)
-        error_corrected = np.zeros(num_of_predictions)
+        ground_state = np.ones(num_of_episodes, dtype=bool)
+        error_corrected = np.zeros(num_of_episodes)
         mean_steps_per_p_error = 0
         mean_q_per_p_error = 0
         steps_counter = 0
-        for j in range(num_of_predictions):
+        for j in range(num_of_episodes):
             num_of_steps_per_episode = 0
             prev_action = 0
             terminal_state = 0
@@ -71,7 +72,7 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_pre
             
             # plot one episode
             if plot_one_episode == True and j == 0 and i == 0:
-                env.toric.plot_toric_code(state, 'initial_syndrom')
+                env.plot_toric_code(state, 'initial_syndrom')
             
             init_qubit_state = deepcopy(env.qubit_matrix)
             # solve syndrome
@@ -96,7 +97,7 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_pre
                 mean_q_per_p_error = incrementalMean(q_value, mean_q_per_p_error, steps_counter)
                 
                 if plot_one_episode == True and j == 0 and i == 0:
-                    env.toric.plot_toric_code(state, 'step_'+str(num_of_steps_per_episode))
+                    env.plot_toric_code(state, 'step_'+str(num_of_steps_per_episode))
 
             # compute mean steps 
             mean_steps_per_p_error = incrementalMean(num_of_steps_per_episode, mean_steps_per_p_error, j+1)
@@ -110,14 +111,14 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_pre
                 failed_syndroms.append(init_qubit_state)
                 failed_syndroms.append(env.qubit_matrix)
 
-        success_rate = (num_of_predictions - np.sum(error_corrected)) / num_of_predictions # TODO: This does not make sense
+        success_rate = (num_of_episodes - np.sum(error_corrected)) / num_of_episodes # TODO: This does not make sense
         error_corrected_list[i] = success_rate
-        ground_state_change = (num_of_predictions - np.sum(ground_state)) / num_of_predictions
+        ground_state_change = (num_of_episodes - np.sum(ground_state)) / num_of_episodes
         ground_state_list[i] =  1 - ground_state_change
         average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
         mean_q_list[i] = np.round(mean_q_per_p_error, 3)
 
-    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, failure_rate
+    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms
 
 
 
