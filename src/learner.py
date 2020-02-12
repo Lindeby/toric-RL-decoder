@@ -95,9 +95,54 @@ def learner(rank, world_size, args):
     
 
     # Tensorboard
+<<<<<<< HEAD
     tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
     update_tb = args["update_tb"]
+=======
+    # tensor_board = tb.SummaryWriter(log_dir="../runs/")
 
+    def terminate():
+        
+        # prepare replay memory for termination
+        msg = "prep_terminate"
+        con_replay_memory.send(msg)
+        #wait for acknowlage
+        back = con_replay_memory.recv()    
+        
+        # prepare actors for termination
+        msg = ("prep_terminate", None)
+        for a in range(world_size-2):
+            con_actors[a].send(msg)
+            # wait for acknowledge
+            back = con_actors[a].recv()
+        
+        # terminate actors
+        msg = ("terminate", None)
+        for a in range(world_size-2):
+            con_actors[a].send(msg)
+            # wait for acknowledge
+            back = con_actors[a].recv()
+
+
+>>>>>>> 690f7ed6a795ec7a0148221f87fc32ef83738c0a
+
+        # empty and close queue before termination
+        try:
+            while True:
+                transition_queue_from_memory.get_nowait()
+        except Empty:
+            pass
+        
+        transition_queue_from_memory.close()
+        update_priorities_queue_to_memory.close()
+
+        
+        # terminate memory
+        msg = "terminate"
+        con_replay_memory.send(msg)
+        # wait for acknowlage
+        back = con_replay_memory.recv()
+    
     def dataToBatch(data):
         """ Converts data from the replay memory to appropriate dimensions.
 
@@ -241,6 +286,7 @@ def learner(rank, world_size, args):
         
 
     # training done
+<<<<<<< HEAD
     tb.close()
     # Save network
     torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(env_config["size"], type(policy_net).__name__))
@@ -286,6 +332,30 @@ def learner(rank, world_size, args):
     
 
 
+=======
+    terminate()
+    # TODO: save network
+    
+    
+
+
+
+# def getLoss(self, criterion, optimizer, y, output, weights, indices):
+#     loss = criterion(y, output)
+#     optimizer.zero_grad()
+#     # # for prioritized experience replay
+#     # if self.replay_memory == 'proportional':
+#     #     tensor = from_numpy(np.array(weights))
+#     #     tensor = tensor.type('torch.Tensor')
+#     #     loss = tensor * loss.cpu() # TODO: Move to gpu
+#     #     priorities = torch.Tensor(loss, requires_grad=False)
+#     #     priorities = np.absolute(priorities.detach().numpy())
+#     #     self.memory.priority_update(indices, priorities)
+#     return loss.mean()
+
+
+
+>>>>>>> 690f7ed6a795ec7a0148221f87fc32ef83738c0a
 def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     """ Generates the max Q values for a batch of states.
     Params
