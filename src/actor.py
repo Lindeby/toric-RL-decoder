@@ -89,15 +89,12 @@ def actor(rank, world_size, args):
     # Get initial network params
     weights = None
     while weights == None:
-        print("recieve weights")
         msg, weights = con_learner.recv() # blocking op
         if msg != "weights":
             weights = None
-        print("done receiving weights")
 
     # load weights
     vector_to_parameters(weights, model.parameters())
-    # model.load_state_dict(weights)
 
 
     # init counters
@@ -112,7 +109,6 @@ def actor(rank, world_size, args):
    
     # main loop over training steps
     while True:
-    #for iteration in range(args["train_steps"]):
         
         if con_learner.poll():
             msg, weights = con_learner.recv()
@@ -138,7 +134,7 @@ def actor(rank, world_size, args):
 
 
         state, reward, terminal_state, _ = env.step(action)
-        # print(action)
+
         # generate transition to store in local memory buffer
         transition = generateTransition(action,
                                         reward,
@@ -160,11 +156,6 @@ def actor(rank, world_size, args):
             local_memory_index = 0
         else:
             local_memory_index += 1
-
-        ## if new weights are available, update network
-        #if con_receive_weights.poll():
-        #    weights = con_receive_weights.recv()
-        #    vector_to_parameters(weights, model.parameters())
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
             state = env.reset()

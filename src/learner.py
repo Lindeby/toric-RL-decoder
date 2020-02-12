@@ -119,7 +119,6 @@ def learner(rank, world_size, args):
 
         def toNetInput(batch):
             batch_input = np.stack(batch, axis=0) 
-            # from np to tensor
             tensor = from_numpy(batch_input)
             tensor = tensor.type('torch.Tensor')
             return tensor.to(device)
@@ -160,6 +159,7 @@ def learner(rank, world_size, args):
     con_actors = args["con_actors"]
     con_replay_memory = args["con_replay_memory"]
     
+    # eval params
     eval_freq = args["eval_freq"]
     env_config = args["env_config"]
     env = gym.make(args['env'], config=env_config)
@@ -171,10 +171,12 @@ def learner(rank, world_size, args):
     policy_class = args["policy_net"]
     policy_config = args["policy_config"] 
     policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    policy_net.to(device)
     
     target_class = args["target_net"]
     target_config = args["target_config"] 
     target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    target_net.to(device)
     
     # Tensorboard
     tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
@@ -274,8 +276,8 @@ def learner(rank, world_size, args):
 
         # write to tensorboard        
         if t % update_tb == 0:
-            tb.add_scalar('Avg Policy Loss', sum_loss.item()/eval_freq, t)
-            tb.add_scalar('Avg Wait Time Learner For New Transitions', sum_wait_time/eval_freq, t)
+            tb.add_scalar('Eval/Avg_Over_{}_Loss'.format(update_tb), sum_loss.item()/eval_freq, t)
+            tb.add_scalar('Wait/Avg_Over_{}_Wait_Learner_For_New_Transitions'.format(update_tb), sum_wait_time/eval_freq, t)
             sum_loss = 0
             sum_wait_time = 0
         
@@ -305,6 +307,7 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     batch_output = np.zeros(batch_size)
     batch_perspectives = np.zeros(shape=(batch_size, 2, system_size, system_size))
     batch_actions = np.zeros(batch_size)
+
     for i in range(batch_size):
         if (batch_state[i].cpu().sum().item() == 0):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))

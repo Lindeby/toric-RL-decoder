@@ -99,7 +99,7 @@ def experienceReplayBuffer(rank, world_size, args):
                     , trans_q_to_mem_avg_size / update_tb         
                     , update_prio_q_to_memory_avg_size / update_tb
                     ]
-            writeToTB(tb, data, timestep)
+            writeToTB(tb, data, timestep, update_tb)
             trans_q_from_mem_avg_size           = 0
             trans_q_to_mem_avg_size             = 0
             update_prio_q_to_memory_avg_size    = 0
@@ -140,9 +140,9 @@ def experienceReplayBuffer(rank, world_size, args):
                 break
                 
  
-def writeToTB(tb, data, timestep):
-    tb.add_scalar("Avg Transition Queue Size (from memory)", data[0], timestep)
-    tb.add_scalar("Avg Transition Queue Size (to memory)", data[1], timestep)
-    tb.add_scalar("Avg Priority Queue Size (to memory)", data[2], timestep)
+def writeToTB(tb, data, timestep, update):
+    tb.add_scalar("TransitionQueue/Avg_Over_{}_Size(fromMemory)".format(update), data[0], timestep)
+    tb.add_scalar("TransitionQueue/Avg_Over_{}_Size(toMemory)".format(update), data[1], timestep)
+    tb.add_scalar("PriorityQueue/Avg_Over_{}_Size".format(update), data[2], timestep)
 
     

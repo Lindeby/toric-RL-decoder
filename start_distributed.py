@@ -44,20 +44,19 @@ dl = Distributed(policy_net = NETWORK,
                  env_config = env_config,
                  device = device,
                  optimizer  = 'Adam',
-                 replay_size= 10,
+                 replay_size= 100,
                  alpha = 0.6,
-                 beta = 0.4,
-                 memory_batch_size = 4
-                 )
+                 beta = 0.4
+                )
 
-epsilons = [0.9, 0.1, 0.1, 0.1, 0.1]
+epsilons = [0.9, 0.5]
 
 dl.train(training_steps = 100,
         no_actors = 1,
         learning_rate = 0.00025,
         epsilons = epsilons,
         beta = 1,
-        batch_size = 4,
+        batch_size = 16,
         policy_update = 10,
         discount_factor = 0.9,
         max_actions_per_episode = 10,

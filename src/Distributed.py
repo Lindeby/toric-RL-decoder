@@ -25,7 +25,6 @@ class Distributed():
                         replay_size, 
                         alpha, 
                         beta, 
-                        memory_batch_size,
                         update_tb = 10
                         ):
 
@@ -39,13 +38,9 @@ class Distributed():
 
         self.optimizer = optimizer
         self.device = device
-        self.replay_size = replay_size
+        self.replay_mem_size = replay_size
         self.alpha = alpha
-        self.beta = beta
-        self.memory_batch_size = memory_batch_size
-        
-        if memory_batch_size > replay_size:
-            raise ValueError("Please make sure replay memory size is larger than batch size.")
+        self.beta = beta        
         
         self.update_tb = update_tb
         self.tb_log_dir = "runs/{}".format(datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))
@@ -67,6 +62,9 @@ class Distributed():
                     replay_size_before_sample = None,
                     ):
         
+        if batch_size > self.replay_mem_size:
+            raise ValueError("Please make sure replay memory size is larger than batch size.")
+
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         actor_processes = []
 
@@ -128,10 +126,10 @@ class Distributed():
             Memory Process
         """
         mem_args = {
-            "capacity"                          :self.replay_size,
+            "capacity"                          :self.replay_mem_size,
             "alpha"                             :self.alpha,
             "beta"                              :self.beta,
-            "batch_size"                        :self.memory_batch_size,
+            "batch_size"                        :batch_size,
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
