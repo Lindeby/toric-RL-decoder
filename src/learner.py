@@ -91,7 +91,47 @@ def learner(rank, world_size, args):
     # Tensorboard
     # tensor_board = tb.SummaryWriter(log_dir="../runs/")
 
+    def terminate():
+        
+        # prepare replay memory for termination
+        msg = "prep_terminate"
+        con_replay_memory.send(msg)
+        #wait for acknowlage
+        back = con_replay_memory.recv()    
+        
+        # prepare actors for termination
+        msg = ("prep_terminate", None)
+        for a in range(world_size-2):
+            con_actors[a].send(msg)
+            # wait for acknowledge
+            back = con_actors[a].recv()
+        
+        # terminate actors
+        msg = ("terminate", None)
+        for a in range(world_size-2):
+            con_actors[a].send(msg)
+            # wait for acknowledge
+            back = con_actors[a].recv()
 
+
+
+        # empty and close queue before termination
+        try:
+            while True:
+                transition_queue_from_memory.get_nowait()
+        except Empty:
+            pass
+        
+        transition_queue_from_memory.close()
+        update_priorities_queue_to_memory.close()
+
+        
+        # terminate memory
+        msg = "terminate"
+        con_replay_memory.send(msg)
+        # wait for acknowlage
+        back = con_replay_memory.recv()
+    
     def dataToBatch(data):
         """ Converts data from the replay memory to appropriate dimensions.
 
@@ -206,45 +246,7 @@ def learner(rank, world_size, args):
         #  tensor_boaord.writer.add_scalar('Loss', loss, t)
 
     # training done
-
-    # prepare replay memory for termination
-    msg = "prep_terminate"
-    con_replay_memory.send(msg)
-    #wait for acknowlage
-    back = con_replay_memory.recv()    
-    
-    # prepare actors for termination
-    msg = ("prep_terminate", None)
-    for a in range(world_size-2):
-        con_actors[a].send(msg)
-        # wait for acknowledge
-        back = con_actors[a].recv()
-    
-    # terminate actors
-    msg = ("terminate", None)
-    for a in range(world_size-2):
-        con_actors[a].send(msg)
-        # wait for acknowledge
-        back = con_actors[a].recv()
-
-
-
-    # empty and close queue before termination
-    try:
-        while True:
-            transition_queue_from_memory.get_nowait()
-    except Empty:
-        pass
-    
-    transition_queue_from_memory.close()
-    update_priorities_queue_to_memory.close()
-
-    
-    # terminate memory
-    msg = "terminate"
-    con_replay_memory.send(msg)
-    # wait for acknowlage
-    back = con_replay_memory.recv()
+    terminate()
     # TODO: save network
     
     
@@ -263,6 +265,7 @@ def learner(rank, world_size, args):
 #     #     priorities = np.absolute(priorities.detach().numpy())
 #     #     self.memory.priority_update(indices, priorities)
 #     return loss.mean()
+
 
 
 def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
