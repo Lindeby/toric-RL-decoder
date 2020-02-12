@@ -67,40 +67,6 @@ def learner(rank, world_size, args):
     }
     """
 
-    update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
-    transition_queue_from_memory = args["transition_queue_from_memory"]
-    device = args["device"]
-    train_steps = args["train_steps"]
-    discount_factor = args["discount_factor"]
-    batch_size = args["batch_size"]
-
-    con_actors = args["con_actors"]
-    con_replay_memory = args["con_replay_memory"]
-    
-    eval_freq = args["eval_freq"]
-    env_config = args["env_config"]
-    env = gym.make(args['env'], config=env_config)
-    system_size = env_config["size"]
-    grid_shift = int(system_size/2)
-
-
-    # Init nets
-    policy_class = args["policy_net"]
-    policy_config = args["policy_config"] 
-    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
-    
-    target_class = args["target_net"]
-    target_config = args["target_config"] 
-    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
-    
-
-    # Tensorboard
-<<<<<<< HEAD
-    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
-    update_tb = args["update_tb"]
-=======
-    # tensor_board = tb.SummaryWriter(log_dir="../runs/")
-
     def terminate():
         
         # prepare replay memory for termination
@@ -122,9 +88,6 @@ def learner(rank, world_size, args):
             con_actors[a].send(msg)
             # wait for acknowledge
             back = con_actors[a].recv()
-
-
->>>>>>> 690f7ed6a795ec7a0148221f87fc32ef83738c0a
 
         # empty and close queue before termination
         try:
@@ -186,12 +149,44 @@ def learner(rank, world_size, args):
 
         return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, index
 
+
+    update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
+    transition_queue_from_memory = args["transition_queue_from_memory"]
+    device = args["device"]
+    train_steps = args["train_steps"]
+    discount_factor = args["discount_factor"]
+    batch_size = args["batch_size"]
+
+    con_actors = args["con_actors"]
+    con_replay_memory = args["con_replay_memory"]
+    
+    eval_freq = args["eval_freq"]
+    env_config = args["env_config"]
+    env = gym.make(args['env'], config=env_config)
+    system_size = env_config["size"]
+    grid_shift = int(system_size/2)
+
+
+    # Init nets
+    policy_class = args["policy_net"]
+    policy_config = args["policy_config"] 
+    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    
+    target_class = args["target_net"]
+    target_config = args["target_config"] 
+    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    
+    # Tensorboard
+    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
+    update_tb = args["update_tb"]
+
     # init counter
     push_new_weights = 0
-    wait_time = 0       # logging
+
+    # logging
+    wait_time = 0
     sum_loss = 0
     sum_wait_time = 0
-    update_tb = 10
 
 
     # define criterion and optimizer
@@ -286,76 +281,12 @@ def learner(rank, world_size, args):
         
 
     # training done
-<<<<<<< HEAD
+    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
     tb.close()
-    # Save network
-    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(env_config["size"], type(policy_net).__name__))
-    
-    # prepare replay memory for termination
-    msg = "prep_terminate"
-    con_replay_memory.send(msg)
-    #wait for acknowlage
-    back = con_replay_memory.recv()    
-    
-    # prepare actors for termination
-    msg = ("prep_terminate", None)
-    for a in range(world_size-2):
-        con_actors[a].send(msg)
-        # wait for acknowledge
-        back = con_actors[a].recv()
-    
-    # terminate actors
-    msg = ("terminate", None)
-    for a in range(world_size-2):
-        con_actors[a].send(msg)
-        # wait for acknowledge
-        back = con_actors[a].recv()
-
-
-
-    # empty and close queue before termination
-    try:
-        while True:
-            transition_queue_from_memory.get_nowait()
-    except Empty:
-        pass
-    
-    transition_queue_from_memory.close()
-    update_priorities_queue_to_memory.close()
-
-    
-    # terminate memory
-    msg = "terminate"
-    con_replay_memory.send(msg)
-    # wait for acknowlage
-    back = con_replay_memory.recv()
-    
-
-
-=======
     terminate()
-    # TODO: save network
-    
     
 
 
-
-# def getLoss(self, criterion, optimizer, y, output, weights, indices):
-#     loss = criterion(y, output)
-#     optimizer.zero_grad()
-#     # # for prioritized experience replay
-#     # if self.replay_memory == 'proportional':
-#     #     tensor = from_numpy(np.array(weights))
-#     #     tensor = tensor.type('torch.Tensor')
-#     #     loss = tensor * loss.cpu() # TODO: Move to gpu
-#     #     priorities = torch.Tensor(loss, requires_grad=False)
-#     #     priorities = np.absolute(priorities.detach().numpy())
-#     #     self.memory.priority_update(indices, priorities)
-#     return loss.mean()
-
-
-
->>>>>>> 690f7ed6a795ec7a0148221f87fc32ef83738c0a
 def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     """ Generates the max Q values for a batch of states.
     Params
