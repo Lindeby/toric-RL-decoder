@@ -3,19 +3,20 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
-import torch.utils.tensorboard as tb
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.utils.tensorboard import SummaryWriter
 from torch import from_numpy
 # other
 import numpy as np
+import gym
+from queue import Empty
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
-# from evaluation import evaluate
+from src.evaluation import evaluate
 
 # debuging
 import time
 
-from queue import Empty
 
 def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
@@ -47,13 +48,15 @@ def learner(rank, world_size, args):
         , learning_rate:                      (float)
         , device:                             (String) {"cpu", "cuda"}
         , policy_update:                      (int)
-        , replay_memory:                      (obj)
         , discount_factor:                    (float)
         , con_send_weights:                   (multiprocessing.Connection)
         , transition_queue_from_memory:       (multiprocessing.Queue) Queue
         , update_priorities_queue_to_memory:  (multiprocessing.Queue) Queue
         , con_actors:                         Array of connections (multiprocessing.Pipe)  Pipe(Duplex = True)
         , con_replay_memory:                  (multiprocessing.Pipe)  Pipe(Duplex = True)
+        , eval_freq                           (int)
+        , update_tb                           (int) frequensy to update tensorboard
+        , tb_log_dir                          (String) tensorboard log dir
         , env:                                (String) for evaluating the policy.
         , env_config:                         (dict)
         
@@ -67,7 +70,6 @@ def learner(rank, world_size, args):
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     transition_queue_from_memory = args["transition_queue_from_memory"]
     device = args["device"]
-    replay_memory = args["replay_memory"]
     train_steps = args["train_steps"]
     discount_factor = args["discount_factor"]
     batch_size = args["batch_size"]
@@ -75,7 +77,9 @@ def learner(rank, world_size, args):
     con_actors = args["con_actors"]
     con_replay_memory = args["con_replay_memory"]
     
+    eval_freq = args["eval_freq"]
     env_config = args["env_config"]
+    env = gym.make(args['env'], config=env_config)
     system_size = env_config["size"]
     grid_shift = int(system_size/2)
 
@@ -91,8 +95,8 @@ def learner(rank, world_size, args):
     
 
     # Tensorboard
-    # tensor_board = tb.SummaryWriter(log_dir="../runs/")
-
+    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
+    update_tb = args["update_tb"]
 
     def dataToBatch(data):
         """ Converts data from the replay memory to appropriate dimensions.
@@ -139,6 +143,11 @@ def learner(rank, world_size, args):
 
     # init counter
     push_new_weights = 0
+    wait_time = 0       # logging
+    sum_loss = 0
+    sum_wait_time = 0
+    update_tb = 10
+
 
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
@@ -155,16 +164,18 @@ def learner(rank, world_size, args):
         msg = ("weights", params.detach())
         con_actors[actor].send(msg)
     
-
     # Wait until replay memory has enough transitions for one batch
-    while transition_queue_from_memory.empty():
-        continue
+    while transition_queue_from_memory.empty(): continue
 
     # Start training
     for t in range(train_steps):
         print("learner: traning step: ",t+1," / ",train_steps)
 
-        while transition_queue_from_memory.empty(): continue # wait until there is an item in queue
+        # wait until there is an item in queue
+        while transition_queue_from_memory.empty():
+            wait_time += 1
+            continue 
+
         data = transition_queue_from_memory.get()
 
         # TODO: Everything out from here should be tenors, except indices
@@ -196,21 +207,44 @@ def learner(rank, world_size, args):
         loss.backward()
         optimizer.step()
 
+        # update priorities in replay buffer
         update_priorities_queue_to_memory.put([*zip(priorities, indices)])
 
+        # update actor weights
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:
             params = parameters_to_vector(policy_net.parameters())
             msg = ("weights", params.detach())
             for actor in range(world_size-2):
-                con_actor[actor].send(msg)
+                con_actors[actor].send(msg)
             push_new_weights = 0
 
-        # write to tensorboard
-        #  tensor_boaord.writer.add_scalar('Loss', loss, t)
+        sum_loss += loss.sum()
+        sum_wait_time += wait_time
+        wait_time = 0
+
+        # eval and write to tensorboard
+        # if t % eval_freq == 0:
+            # suc_rate, gr_st, avg_no_steps, mean_q, fail_syndr, p_errs = evaluate(policy_net
+            #                                                                     , env
+            #                                                                     , grid_shift
+            #                                                                     , device
+            #                                                                     , [0.1, 0.5]                  
+            #                                                                     , num_of_predictions=10)
+
+        # write to tensorboard        
+        if t % update_tb == 0:
+            tb.add_scalar('Avg Policy Loss', sum_loss.item()/eval_freq, t)
+            tb.add_scalar('Avg Wait Time Learner For New Transitions', sum_wait_time/eval_freq, t)
+            sum_loss = 0
+            sum_wait_time = 0
+        
 
     # training done
-
+    tb.close()
+    # Save network
+    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(env_config["size"], type(policy_net).__name__))
+    
     # prepare replay memory for termination
     msg = "prep_terminate"
     con_replay_memory.send(msg)
@@ -249,24 +283,7 @@ def learner(rank, world_size, args):
     con_replay_memory.send(msg)
     # wait for acknowlage
     back = con_replay_memory.recv()
-    # TODO: save network
     
-    
-
-
-
-# def getLoss(self, criterion, optimizer, y, output, weights, indices):
-#     loss = criterion(y, output)
-#     optimizer.zero_grad()
-#     # # for prioritized experience replay
-#     # if self.replay_memory == 'proportional':
-#     #     tensor = from_numpy(np.array(weights))
-#     #     tensor = tensor.type('torch.Tensor')
-#     #     loss = tensor * loss.cpu() # TODO: Move to gpu
-#     #     priorities = torch.Tensor(loss, requires_grad=False)
-#     #     priorities = np.absolute(priorities.detach().numpy())
-#     #     self.memory.priority_update(indices, priorities)
-#     return loss.mean()
 
 
 def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
