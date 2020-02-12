@@ -2,7 +2,6 @@
 import os
 from copy import deepcopy
 from collections import namedtuple
-from .ReplayMemory import PrioritizedReplayMemory
 # pytorch
 from torch import from_numpy
 import torch.distributed as dist
@@ -10,108 +9,8 @@ from torch.multiprocessing import Process, SimpleQueue, Pipe, Queue
 # other files
 from .learner import learner
 from .actor import actor
-from .ReplayMemory import PrioritizedReplayMemory
-
-from queue import Empty
+from .DistributedReplayMemory import experienceReplayBuffer
 import time
-def experienceReplayBuffer(rank, world_size, args):
-    """ 
-        args = {"capacity",
-                "alpha",
-                "beta",
-                "batch_size",
-                "transition_queue_to_memory",
-                "transition_queue_form_memory",
-                "update_priorities_queue_to_memory",
-                "con_learner"
-                }
-    """
-   
-    transition_queue_to_memory = args["transition_queue_to_memory"]
-    transition_queue_from_memory = args["transition_queue_from_memory"]
-    update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
-    capacity = args["capacity"]
-    alpha = args["alpha"]
-    beta = args["beta"]
-    batch_size = args["batch_size"]
-    con_learner = args["con_learner"]
-    memory = PrioritizedReplayMemory(capacity, alpha)
-    size_before_sample = args["replay_size_before_sampling"]
-    items_in_mem = 0
-
-    while(True):
-        
-        if con_learner.poll():
-            msg = con_learner.recv()
-            if msg == "prep_terminate":
-                con_learner.send("ok")
-                break
-
-        #Receive transitions from actors
-        for _ in range(100):
-            if transition_queue_to_memory.empty():
-                break
-            
-            #transition, priority = transition_queue_to_memory.get()
-            back = transition_queue_to_memory.get()
-
-            #state, action, reward, next_state, terminal, priority = zip(*back)
-            transition, priority = zip(*back)
-            items_in_mem += len(transition)
-
-            for i in range(len(back)):
-                memory.save(transition[i], priority[i])
-        
-        #Sample batch of transitions to learner
-        # TODO Push multiple items so queue to learner is atleast 5
-        if items_in_mem > size_before_sample:
-            while transition_queue_from_memory.qsize() < 5:
-                transition, weights, indices = memory.sample(batch_size, beta)
-                transition_queue_from_memory.put((transition, weights, indices))
-
-
-
-        for _ in range(10):
-            if update_priorities_queue_to_memory.empty():
-                break
-            
-            update = update_priorities_queue_to_memory.get()
-            priorities, indices = zip(*update)
-            memory.priority_update(indices, priorities)
-    
-    while True:
-        # Ready to terminate nothing more should be sent to learner
-        
-        # Still empty queue since actors might not have recived 
-        # instructions to terminate
-        if con_learner.poll():
-            msg = con_learner.recv()
-            if msg == "terminate":
-                # Empty queues to memory befor termination
-                try:
-                    while True:
-                        transition_queue_to_memory.get_nowait()
-                except Empty:
-                    pass
-                
-                try: 
-                    while True:
-                        update_priorities_queue_to_memory.get_nowait()
-                except Empty:
-                    pass
-
-                try:
-                    while True:
-                        transition_queue_from_memory.get_nowait()
-                except Empty:
-                    pass
-
-
-                transition_queue_from_memory.close()
-                transition_queue_to_memory.close()
-                update_priorities_queue_to_memory.close()
-                con_learner.send("ok")
-                break
                 
             
     
@@ -150,7 +49,6 @@ class Distributed():
         if memory_batch_size > replay_size:
             raise ValueError("Please make sure replay memory size is larger than batch size.")
         
-        self.replay_memory = PrioritizedReplayMemory(replay_size, alpha) 
         # self.grid_shift = int(env.system_size/2)
 
 
@@ -206,7 +104,6 @@ class Distributed():
             "target_net"                           :self.target_net,
             "target_config"                        :self.target_config,
             "device"                               :self.device,
-            "replay_memory"                        :self.replay_memory,
             "transition_queue_from_memory"         :transition_queue_from_memory,
             "update_priorities_queue_to_memory"    :update_priorities_queue_to_memory,
             "con_actors"                           :con_learner_actor,
@@ -236,7 +133,7 @@ class Distributed():
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
             "con_learner"                       :con_memory_learner,
-            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25))
+            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, self.replay_size*0.25)
             }
         
         print("Memory Process")

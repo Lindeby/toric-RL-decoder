@@ -47,7 +47,6 @@ def learner(rank, world_size, args):
         , learning_rate:                      (float)
         , device:                             (String) {"cpu", "cuda"}
         , policy_update:                      (int)
-        , replay_memory:                      (obj)
         , discount_factor:                    (float)
         , con_send_weights:                   (multiprocessing.Connection)
         , transition_queue_from_memory:       (multiprocessing.Queue) Queue
@@ -67,7 +66,6 @@ def learner(rank, world_size, args):
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     transition_queue_from_memory = args["transition_queue_from_memory"]
     device = args["device"]
-    replay_memory = args["replay_memory"]
     train_steps = args["train_steps"]
     discount_factor = args["discount_factor"]
     batch_size = args["batch_size"]
