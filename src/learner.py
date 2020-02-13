@@ -3,19 +3,20 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
-import torch.utils.tensorboard as tb
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.utils.tensorboard import SummaryWriter
 from torch import from_numpy
 # other
 import numpy as np
+import gym
+from queue import Empty
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
-# from evaluation import evaluate
+from src.evaluation import evaluate
 
 # debuging
 import time
 
-from queue import Empty
 
 def learner(rank, world_size, args):
     """The learner in a distributed RL setting. Updates the network params, pushes
@@ -53,6 +54,9 @@ def learner(rank, world_size, args):
         , update_priorities_queue_to_memory:  (multiprocessing.Queue) Queue
         , con_actors:                         Array of connections (multiprocessing.Pipe)  Pipe(Duplex = True)
         , con_replay_memory:                  (multiprocessing.Pipe)  Pipe(Duplex = True)
+        , eval_freq                           (int)
+        , update_tb                           (int) frequensy to update tensorboard
+        , tb_log_dir                          (String) tensorboard log dir
         , env:                                (String) for evaluating the policy.
         , env_config:                         (dict)
         
@@ -62,34 +66,6 @@ def learner(rank, world_size, args):
         }
     }
     """
-
-    update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
-    transition_queue_from_memory = args["transition_queue_from_memory"]
-    device = args["device"]
-    train_steps = args["train_steps"]
-    discount_factor = args["discount_factor"]
-    batch_size = args["batch_size"]
-
-    con_actors = args["con_actors"]
-    con_replay_memory = args["con_replay_memory"]
-    
-    env_config = args["env_config"]
-    system_size = env_config["size"]
-    grid_shift = int(system_size/2)
-
-
-    # Init nets
-    policy_class = args["policy_net"]
-    policy_config = args["policy_config"] 
-    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
-    
-    target_class = args["target_net"]
-    target_config = args["target_config"] 
-    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
-    
-
-    # Tensorboard
-    # tensor_board = tb.SummaryWriter(log_dir="../runs/")
 
     def terminate():
         
@@ -112,8 +88,6 @@ def learner(rank, world_size, args):
             con_actors[a].send(msg)
             # wait for acknowledge
             back = con_actors[a].recv()
-
-
 
         # empty and close queue before termination
         try:
@@ -145,7 +119,6 @@ def learner(rank, world_size, args):
 
         def toNetInput(batch):
             batch_input = np.stack(batch, axis=0) 
-            # from np to tensor
             tensor = from_numpy(batch_input)
             tensor = tensor.type('torch.Tensor')
             return tensor.to(device)
@@ -154,6 +127,8 @@ def learner(rank, world_size, args):
         batch = data[0]
         weights = data[1]
         index = data[2]
+
+        weights = from_numpy(np.array(weights)).type('torch.Tensor').to(device)
 
         # preprocess batch_input and batch_target_input for the network
         list_state, list_action, list_reward, list_next_state, list_terminal = zip(*batch)
@@ -173,8 +148,48 @@ def learner(rank, world_size, args):
 
         return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, index
 
+
+    update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
+    transition_queue_from_memory = args["transition_queue_from_memory"]
+    device = args["device"]
+    train_steps = args["train_steps"]
+    discount_factor = args["discount_factor"]
+    batch_size = args["batch_size"]
+
+    con_actors = args["con_actors"]
+    con_replay_memory = args["con_replay_memory"]
+    
+    # eval params
+    eval_freq = args["eval_freq"]
+    env_config = args["env_config"]
+    env = gym.make(args['env'], config=env_config)
+    system_size = env_config["size"]
+    grid_shift = int(system_size/2)
+
+
+    # Init nets
+    policy_class = args["policy_net"]
+    policy_config = args["policy_config"] 
+    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    policy_net.to(device)
+    
+    target_class = args["target_net"]
+    target_config = args["target_config"] 
+    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    target_net.to(device)
+    
+    # Tensorboard
+    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
+    update_tb = args["update_tb"]
+
     # init counter
     push_new_weights = 0
+
+    # logging
+    wait_time = 0
+    sum_loss = 0
+    sum_wait_time = 0
+
 
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
@@ -185,25 +200,26 @@ def learner(rank, world_size, args):
     
 
     # Push initial network params
-    weights = parameters_to_vector(policy_net.parameters()) 
+    params = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
     for actor in range(world_size-2):
-        msg = ("weights", weights.detach())
+        msg = ("weights", params.detach())
         con_actors[actor].send(msg)
     
-
     # Wait until replay memory has enough transitions for one batch
-    while transition_queue_from_memory.empty():
-        continue
+    while transition_queue_from_memory.empty(): continue
 
     # Start training
     for t in range(train_steps):
         print("learner: traning step: ",t+1," / ",train_steps)
 
-        while transition_queue_from_memory.empty(): continue # wait until there is an item in queue
+        # wait until there is an item in queue
+        while transition_queue_from_memory.empty():
+            wait_time += 1
+            continue 
+
         data = transition_queue_from_memory.get()
 
-        # TODO: Everything out from here should be tenors, except indices
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data)
         
         policy_net.train()
@@ -211,7 +227,6 @@ def learner(rank, world_size, args):
 
         # compute policy net output
         policy_output = policy_net(batch_state)
-        # TODO: Fix, batch actions sometimes contains actions 3. (Cause of error)
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
@@ -222,8 +237,9 @@ def learner(rank, world_size, args):
         y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
         loss = criterion(y, policy_output)
         
-        # Compute priotities
-        priorities = loss.cpu() #TODO: priorities = np.absolute(weights * loss.cpu())
+        # Compute priorities
+        priorities = weights * loss.cpu()
+        priorities = np.absolute(priorities.detach().numpy())
         
         optimizer.zero_grad()
         loss = loss.mean()
@@ -232,40 +248,51 @@ def learner(rank, world_size, args):
         loss.backward()
         optimizer.step()
 
-        update_priorities_queue_to_memory.put([*zip(priorities.detach().numpy(), indices)])
+        # update priorities in replay buffer
+        update_priorities_queue_to_memory.put([*zip(priorities, indices)])
 
+        # update actor weights
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:
-            weights = parameters_to_vector(policy_net.parameters())
-            msg = ("weights", weights.detach())
+            params = parameters_to_vector(policy_net.parameters())
+            msg = ("weights", params.detach())
             for actor in range(world_size-2):
-                con_actor[actor].send(msg)
+                con_actors[actor].send(msg)
             push_new_weights = 0
 
-        # write to tensorboard
-        #  tensor_boaord.writer.add_scalar('Loss', loss, t)
+        sum_loss += loss.sum()
+        sum_wait_time += wait_time
+        wait_time = 0
+
+
+        # eval and write to tensorboard
+        if t % eval_freq == 0 :
+            p_errors = [0.1, 0.5]
+            suc_rate, gr_st, avg_no_steps, mean_q, _ = evaluate(policy_net
+                                                                , env
+                                                                , grid_shift
+                                                                , device
+                                                                , p_errors                  
+                                                                , num_of_episodes=1)
+            for i,e in enumerate(p_errors):
+                tb.add_scalar("Eval/SuccessRate_{}".format(e), suc_rate[i], t)
+                tb.add_scalar("Eval/GroundState_{}".format(e), gr_st[i], t)
+                tb.add_scalar("Eval/AvgNoSteps_{}" .format(e), avg_no_steps[i], t)
+                tb.add_scalar("Eval/MeanQValue_{}" .format(e), mean_q[i], t)
+
+        # write to tensorboard        
+        if t % update_tb == 0:
+            tb.add_scalar('Eval/Avg_Over_{}_Loss'.format(update_tb), sum_loss.item()/eval_freq, t)
+            tb.add_scalar('Wait/Avg_Over_{}_Wait_Learner_For_New_Transitions'.format(update_tb), sum_wait_time/eval_freq, t)
+            sum_loss = 0
+            sum_wait_time = 0
+        
 
     # training done
+    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+    tb.close()
     terminate()
-    # TODO: save network
     
-    
-
-
-
-# def getLoss(self, criterion, optimizer, y, output, weights, indices):
-#     loss = criterion(y, output)
-#     optimizer.zero_grad()
-#     # # for prioritized experience replay
-#     # if self.replay_memory == 'proportional':
-#     #     tensor = from_numpy(np.array(weights))
-#     #     tensor = tensor.type('torch.Tensor')
-#     #     loss = tensor * loss.cpu() # TODO: Move to gpu
-#     #     priorities = torch.Tensor(loss, requires_grad=False)
-#     #     priorities = np.absolute(priorities.detach().numpy())
-#     #     self.memory.priority_update(indices, priorities)
-#     return loss.mean()
-
 
 
 def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
@@ -286,6 +313,7 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     batch_output = np.zeros(batch_size)
     batch_perspectives = np.zeros(shape=(batch_size, 2, system_size, system_size))
     batch_actions = np.zeros(batch_size)
+
     for i in range(batch_size):
         if (batch_state[i].cpu().sum().item() == 0):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))

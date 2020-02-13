@@ -99,3 +99,5 @@ def shift_state(row, col, previous_state, state, grid_shift):
         perspective = np.roll(state, grid_shift-row, axis=1)
         perspective = np.roll(perspective, grid_shift-col, axis=2)
         return previous_perspective, perspective
+
+

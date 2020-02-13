@@ -1,19 +1,16 @@
 # standard libraries
 import os
-from copy import deepcopy
 from collections import namedtuple
+from datetime import datetime
 # pytorch
-from torch import from_numpy
 import torch.distributed as dist
-from torch.multiprocessing import Process, SimpleQueue, Pipe, Queue
+from torch.multiprocessing import Process, Pipe, Queue
 # other files
 from .learner import learner
 from .actor import actor
-from .DistributedReplayMemory import experienceReplayBuffer
-import time
-                
-            
-    
+from .buffer import experienceReplayBuffer
+
+
 
 class Distributed():
         
@@ -28,7 +25,7 @@ class Distributed():
                         replay_size, 
                         alpha, 
                         beta, 
-                        memory_batch_size
+                        update_tb = 10
                         ):
 
         self.policy_net = policy_net
@@ -41,14 +38,12 @@ class Distributed():
 
         self.optimizer = optimizer
         self.device = device
-        self.replay_size = replay_size
+        self.replay_mem_size = replay_size
         self.alpha = alpha
-        self.beta = beta
-        self.memory_batch_size = memory_batch_size
+        self.beta = beta        
         
-        if memory_batch_size > replay_size:
-            raise ValueError("Please make sure replay memory size is larger than batch size.")
-        
+        self.update_tb = update_tb
+        self.tb_log_dir = "runs/{}".format(datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))
         # self.grid_shift = int(env.system_size/2)
 
 
@@ -63,9 +58,13 @@ class Distributed():
                     discount_factor,
                     max_actions_per_episode,
                     size_local_memory_buffer,
-                    replay_size_before_sample = None
+                    eval_freq,
+                    replay_size_before_sample = None,
                     ):
         
+        if batch_size > self.replay_mem_size:
+            raise ValueError("Please make sure replay memory size is larger than batch size.")
+
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         actor_processes = []
 
@@ -108,8 +107,11 @@ class Distributed():
             "update_priorities_queue_to_memory"    :update_priorities_queue_to_memory,
             "con_actors"                           :con_learner_actor,
             "con_replay_memory"                    :con_learner_memory,
+            "eval_freq"                            :eval_freq,
             "env"                                  :self.env,
-            "env_config"                           :self.env_config
+            "env_config"                           :self.env_config,
+            "tb_log_dir"                           :self.tb_log_dir,
+            "update_tb"                            :self.update_tb
         }
 
          
@@ -119,32 +121,32 @@ class Distributed():
                                         learner, 
                                         learner_args))
         learner_process.start()
-        #processes.append(learner_process)
         
         """
             Memory Process
         """
         mem_args = {
-            "capacity"                          :self.replay_size,
+            "capacity"                          :self.replay_mem_size,
             "alpha"                             :self.alpha,
             "beta"                              :self.beta,
-            "batch_size"                        :self.memory_batch_size,
+            "batch_size"                        :batch_size,
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
             "con_learner"                       :con_memory_learner,
-            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, self.replay_size*0.25)
+            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25)),
+            "tb_log_dir"                        :self.tb_log_dir,
+            "update_tb"                         :self.update_tb
             }
         
         print("Memory Process")
-        memmory_process = Process(target = self._init_process,
+        memory_process = Process(target = self._init_process,
                                   args=(1, 
                                         world_size,
                                         experienceReplayBuffer,
                                         mem_args))
 
-        memmory_process.start()
-        #processes.append(memmory_process)
+        memory_process.start()
 
         """
             Actor Processes
@@ -182,8 +184,9 @@ class Distributed():
             a.join()
             print(a, "joined")
 
-        memmory_process.join()
+        memory_process.join()
         learner_process.join()
+
 
     def _init_process(self, rank, size, fn, args, backend='gloo'):
         """ Initialize the distributed environment. """
