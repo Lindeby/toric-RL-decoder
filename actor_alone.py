@@ -21,22 +21,25 @@ from numpy import save
 from pathlib import Path
 import sys
 import time
+import multiprocessing
 
-def actor():
+def actor(num, num_transitions):
     
+    print("hello ", num)
             
     device = "cpu"
-    generate_transitions = int(sys.argv[1])
-
+    generate_transitions = num_transitions #int(sys.argv[1])
+    
+    size = 9
 
     # set network to eval mode
     NN = NN_17
-    model = NN(9, 3, device)
+    model = NN(size, 3, device)
     model.eval()
     
     # env and env params
      
-    env_config = {  "size": 9,
+    env_config = {  "size": size,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
                  }
@@ -95,9 +98,11 @@ def actor():
     time_stop = time.time()
     time_elapsed = time_stop - time_start
     print("generated ",generate_transitions," transitions in ",time_elapsed) 
+    save_name = 'output_speed_test/transitions_'+str(num)+'.npy'
     Path("output_speed_test").mkdir(parents=True, exist_ok=True)
-    save('output_speed_test/transitions.npy', memory_transitions)
-    save('output_speed_test/q_values.npy', memory_q_values)
+    save(save_name, memory_transitions)
+    #save('output_speed_test/transitions.npy', memory_transitions)
+    #save('output_speed_test/q_values.npy', memory_q_values)
     
             
             
@@ -226,7 +231,18 @@ def generateTransition( action,
         action = Action((1, grid_shift, grid_shift), add_operator)
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
 
-actor()
+
+if __name__ == '__main__':
+        
+    num_actors = int(sys.argv[1])
+    num_transitions = int(sys.argv[2])
+    #num_actors = 2
+ 
+    for i in range(num_actors):
+        a = multiprocessing.Process(target = actor, args=(i, num_transitions))
+        a.start()
+
+#actor()
 
 # def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, device, model, discount_factor):
 #     """ Computes the absolute temporal difference value.
