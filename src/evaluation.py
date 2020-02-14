@@ -160,36 +160,30 @@ def select_action_prediction(model, device, state, toric_size, number_of_actions
     if(1 - epsilon > rand):
         # select greedy action 
         row, col = np.where(q_values_table == np.max(q_values_table))
-        perspective = row[0]
-        max_q_action = col[0] + 1
-        step = [  batch_position_actions[perspective][0],
-                    batch_position_actions[perspective][1],
-                    batch_position_actions[perspective][2],
-                    max_q_action]
+        p = row[0]
+        a = col[0] + 1
+        action = [  batch_position_actions[p][0],
+                    batch_position_actions[p][1],
+                    batch_position_actions[p][2],
+                    a]
 
-        if prev_action == step:
+        if prev_action == action:
             res = heapq.nlargest(2, q_values_table.flatten())
             row, col = np.where(q_values_table == res[1])
-            perspective = row[0]
-            max_q_action = col[0] + 1
-            step = [    batch_position_actions[perspective][0],
-                        batch_position_actions[perspective][1],
-                        batch_position_actions[perspective][2],
-                        max_q_action]
-        q_value = q_values_table[row[0], col[0]]
+            p = row[0]
+            a = col[0] + 1
     # select random action
     else:
-        random_perspective = random.randint(0, number_of_perspectives-1)
-        random_action = random.randint(1, number_of_actions)
-        q_value = q_values_table[random_perspective, random_action-1]
-        action = [  batch_position_actions[random_perspective][0],
-                    batch_position_actions[random_perspective][1],
-                    batch_position_actions[random_perspective][2],
-                    random_action]
+        p = random.randint(0, number_of_perspectives-1)
+        a = random.randint(0, number_of_actions-1) +1
 
-
+    q_value = q_values_table[p, a-1]
+    action = [  batch_position_actions[p][0],
+                batch_position_actions[p][1],
+                batch_position_actions[p][2],
+                a]
     
-    return step, q_value
+    return action, q_value
 
 
 def compute_theoretical_q_value(energy_toric):
