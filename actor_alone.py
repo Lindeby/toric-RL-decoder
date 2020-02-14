@@ -99,8 +99,10 @@ def actor(num, num_transitions):
     time_elapsed = time_stop - time_start
     print("generated ",generate_transitions," transitions in ",time_elapsed) 
     save_name = 'output_speed_test/transitions_'+str(num)+'.npy'
+    save_name_q = 'output_speed_test/q_values_'+str(num)+'.npy'
     Path("output_speed_test").mkdir(parents=True, exist_ok=True)
     save(save_name, memory_transitions)
+    save(save_name_q,memory_q_values)
     #save('output_speed_test/transitions.npy', memory_transitions)
     #save('output_speed_test/q_values.npy', memory_q_values)
     
