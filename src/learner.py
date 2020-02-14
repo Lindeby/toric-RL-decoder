@@ -162,17 +162,15 @@ def learner(rank, world_size, args):
     # eval params
     eval_freq = args["eval_freq"]
     env_config = args["env_config"]
-    env = gym.make(args['env'], config=env_config)
     system_size = env_config["size"]
-    grid_shift = int(system_size/2)
+    grid_shift = int(env_config["size"]/2)
 
-
-    # Init nets
+    # Init policy net
     policy_class = args["policy_net"]
     policy_config = args["policy_config"] 
     policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
     policy_net.to(device)
-    
+    # Init target net
     target_class = args["target_net"]
     target_config = args["target_config"] 
     target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
@@ -198,7 +196,6 @@ def learner(rank, world_size, args):
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
     
-
     # Push initial network params
     params = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
@@ -267,9 +264,10 @@ def learner(rank, world_size, args):
 
         # eval and write to tensorboard
         if t % eval_freq == 0 :
-            p_errors = [0.1, 0.5]
+            p_errors = [0.1]
             suc_rate, gr_st, avg_no_steps, mean_q, _ = evaluate(policy_net
-                                                                , env
+                                                                , args["env"]
+                                                                , args["env_config"]
                                                                 , grid_shift
                                                                 , device
                                                                 , p_errors                  

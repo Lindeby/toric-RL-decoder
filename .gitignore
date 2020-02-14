@@ -18,3 +18,4 @@ src/nn/torch/__pycache__
 *.swo
 runs/
 debug2.py
+plots/
