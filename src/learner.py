@@ -61,7 +61,7 @@ def learner(rank, world_size, args):
         , env_config:                         (dict)
         
             size:               (int)
-            , min_qbit_errors   (int)
+            , min_qubit_errors   (int)
             , p_error           (float)
         }
     }
