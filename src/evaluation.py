@@ -2,19 +2,20 @@ from src.util import load_network, incrementalMean, generatePerspective, Perspec
 import numpy as np
 from copy import deepcopy
 import random, torch
-import heapq
+import heapq, gym
 
 
-def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_episodes=1,
+def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error, num_of_episodes=1,
     num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
-    show_network=False, show_plot=False, minimum_nbr_of_qubit_errors=0, 
+    show_network=False, minimum_nbr_of_qubit_errors=0, 
     print_Q_values=False, save_prediction=True):
     """ Evaluates the current policy by running some episodes.
 
     Params
     ======
-    env:                            (gym.Env)
     model:                          (torch.nn)
+    env:                            (String)
+    env_config:                     (dict)
     grid_shift:                     (int)
     device:                         (String) {"cpu", "cuda"}
     prediction_list_p_error:        (list)
@@ -25,7 +26,6 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
     PATH:                           (String)    (optional)
     plot_one_episode:               (Bool)      (optional)
     show_network:                   (Bool)      (optional)
-    show_plot:                      (Bool)      (optional)
     minimum_nbr_of_qubit_errors:    (int)       (optional)
     print_Q_values:                 (Bool)      (optional)
     save_prediction:                (Bool)      (optional)
@@ -40,7 +40,6 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
     (list): list of floats representing the probability of generating an error
             in the environment for which the model was tested on.
     """
-#    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, failure_rate, prediction_list_p_error
 
     # load network for prediction and set eval mode 
     if PATH != None:
@@ -63,6 +62,10 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
         mean_steps_per_p_error = 0
         mean_q_per_p_error = 0
         steps_counter = 0
+
+        cfg = {"size":env_config["size"], "min_qbit_errors":env_config["min_qbit_errors"], "p_error":p_error}
+        env = gym.make(env, config=cfg)
+
         for j in range(num_of_episodes):
             num_of_steps_per_episode = 0
             prev_action = 0
@@ -72,10 +75,13 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
             
             # plot one episode
             if plot_one_episode == True and j == 0 and i == 0:
-                env.plot_toric_code(state, 'initial_syndrom')
+                env.plotToricCode(state, 'initial_syndrom')
             
             init_qubit_state = deepcopy(env.qubit_matrix)
+
             # solve syndrome
+            energy_toric = []
+            q_values_array = []
             while not terminal_state and num_of_steps_per_episode < num_of_steps:
                 steps_counter += 1
                 num_of_steps_per_episode += 1
@@ -92,13 +98,23 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
 
                 prev_action = action
                 next_state, reward, terminal_state, _ = env.step(action)
+                
+                q_values_array.append(q_value)
+                energy_toric.append(np.sum(state) - np.sum(next_state)) 
 
                 state = next_state
                 mean_q_per_p_error = incrementalMean(q_value, mean_q_per_p_error, steps_counter)
                 
                 if plot_one_episode == True and j == 0 and i == 0:
-                    env.plot_toric_code(state, 'step_'+str(num_of_steps_per_episode))
+                    env.plotToricCode(state, 'step_'+str(num_of_steps_per_episode))
 
+            np.set_printoptions(precision=2, suppress=True)
+            theoretical_q_value = compute_theoretical_q_value(energy_toric)
+            print(q_values_array,'experimental q values')
+            print(theoretical_q_value,'theoreticala q values')
+            deviation_from_theory = (q_values_array - theoretical_q_value)/ theoretical_q_value *100
+            print(deviation_from_theory,'deviation in percent')
+            
             # compute mean steps 
             mean_steps_per_p_error = incrementalMean(num_of_steps_per_episode, mean_steps_per_p_error, j+1)
             # save error corrected 
@@ -107,7 +123,7 @@ def evaluate(model, env, grid_shift, device, prediction_list_p_error, num_of_epi
             # update groundstate
             ground_state[j] = env.evalGroundState()
 
-            if terminal_state == 1 or ground_state[j] == False:
+            if not terminal_state or ground_state[j] == False:
                 failed_syndroms.append(init_qubit_state)
                 failed_syndroms.append(env.qubit_matrix)
 
@@ -138,6 +154,7 @@ def select_action_prediction(model, device, state, toric_size, number_of_actions
     with torch.no_grad():
         policy_net_output = model(batch_perspectives)
         q_values_table = np.array(policy_net_output.cpu())
+    
     #choose action using epsilon greedy approach
     rand = random.random()
     if(1 - epsilon > rand):
@@ -170,3 +187,22 @@ def select_action_prediction(model, device, state, toric_size, number_of_actions
                     batch_position_actions[random_perspective][2],
                     random_action]
     return step, q_value
+
+
+def compute_theoretical_q_value(energy_toric):
+    energy_toric[-1] = 100
+    energy_toric = energy_toric[::-1]
+
+    q = np.zeros(len(energy_toric))
+    gamma_array = [0.95**i for i in range(len(energy_toric))]
+
+    for i in range(len(energy_toric)):
+        i += 1
+        actions_temp = energy_toric[0:i]
+        gamma_temp = gamma_array[0:i]
+        gamma_temp = np. array(gamma_temp[::-1])
+        temp = np.sum(gamma_temp * actions_temp)
+        q[i-1] = temp
+
+    q = q[::-1]
+    return q

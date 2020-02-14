@@ -4,7 +4,7 @@ from collections import namedtuple
 from datetime import datetime
 # pytorch
 import torch.distributed as dist
-from torch.multiprocessing import Process, Pipe, Queue
+from torch.multiprocessing import Process, Pipe, Queue, set_start_method
 # other files
 from .learner import learner
 from .actor import actor
@@ -62,6 +62,7 @@ class Distributed():
                     replay_size_before_sample = None,
                     ):
         
+
         if batch_size > self.replay_mem_size:
             raise ValueError("Please make sure replay memory size is larger than batch size.")
 
@@ -114,7 +115,6 @@ class Distributed():
             "update_tb"                            :self.update_tb
         }
 
-         
         learner_process = Process(target=self._init_process, 
                                   args=(0, 
                                         world_size, 
