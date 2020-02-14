@@ -168,12 +168,14 @@ def learner(rank, world_size, args):
     # Init policy net
     policy_class = args["policy_net"]
     policy_config = args["policy_config"] 
-    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    # policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    policy_net = policy_class()
     policy_net.to(device)
     # Init target net
     target_class = args["target_net"]
     target_config = args["target_config"] 
-    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    # target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    target_net = target_class()
     target_net.to(device)
     
     # Tensorboard
@@ -315,6 +317,7 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     for i in range(batch_size):
         if (batch_state[i].cpu().sum().item() == 0):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
+            print("Hello")
         else:
             # Generate perspectives
             perspectives = generatePerspective(grid_shift, system_size, np.array(batch_state[i])) 
@@ -331,4 +334,54 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
 
 
     batch_output = from_numpy(batch_output).type('torch.Tensor')
+    return batch_output
+
+# TODO TEST
+def predictMaxOptimized(model, batch_state, batch_size, grid_shift, system_size, device):
+    """ Generates the max Q values for a batch of states.
+    Params
+    ======
+    action_index: If the q value of the performed action is requested, 
+    provide the chosen action index
+
+    Return
+    ======
+    (torch.Tensor) A tensor containing the max q value for each state.
+    """
+    
+    master_batch_perspectives = []
+    indices = [0]
+    largest_persp_batch = 0
+    for i, state in enumerate(batch_state):
+        # concat all perspectives to one batch, keep track of indices between batches
+        perspectives = generatePerspective(1, 3, np.array(state))
+        perspectives = Perspective(*zip(*perspectives))
+        master_batch_perspectives.extend(perspectives.perspective)
+
+        ind = len(perspectives.perspective)
+        indices.append(indices[i-1] + ind)
+        largest_persp_batch = max(largest_persp_batch, ind)
+
+    master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
+
+    output = None
+    q_values = None
+    model.eval()
+    with torch.no_grad():
+        output = model(master_batch_perspectives)
+        q_values = np.array(output.cpu())
+    
+    # split q-values back into batches
+    q_values = np.split(q_values, indices[:-1])
+    # pad with 0 so all batches get same size
+    q_values = np.array([np.concatenate((batch, np.zeros((largest_persp_batch - len(batch), 3))), axis=0) for batch in q_values])
+    q_max_idx = q_values.reshape(q_values.shape[0], -1).argmax(1)
+    maxpos_vect = np.column_stack(np.unravel_index(q_max_idx, q_values[0,:,:].shape))
+
+    persp_idx, action_idx = np.split(maxpos_vect, 2, axis=1)
+    batch_idx = np.arange(batch_size)
+    batch_output = q_values[batch_idx, persp_idx, action_idx]
+
+
+    batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
     return batch_output

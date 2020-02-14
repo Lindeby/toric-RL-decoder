@@ -76,7 +76,8 @@ def actor(rank, world_size, args):
     NN = args["model"]
     NN_config = args["model_config"]
 
-    model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
+    # model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
+    model = NN()
     model.to(device)
     model.eval()
     

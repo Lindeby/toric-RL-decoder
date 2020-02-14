@@ -4,8 +4,11 @@ from src.Distributed import Distributed
 import gym, torch
 import gym_ToricCode
 from torch.multiprocessing import set_start_method
+import torchvision.models as models
 
-from src.nn.torch.NN import NN_11, NN_17
+# from src.nn.torch.NN import NN_11, NN_17
+from src.nn.torch.ResNet import ResNet18
+
 from src.nn.torch.ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
 # valid network names: 
@@ -30,7 +33,7 @@ if __name__ == "__main__":
         MIN_QBIT_ERRORS = 0
         P_ERROR = 0.1
 
-        NETWORK = NN_11
+        NETWORK = ResNet18
 
         env_config = {  "size": SYSTEM_SIZE,
                         "min_qubit_errors": MIN_QBIT_ERRORS,
