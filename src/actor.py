@@ -216,24 +216,19 @@ def select_action(number_of_actions, epsilon, grid_shift,
     if(1 - epsilon > rand):
         # select greedy action
         row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
-        perspective = row
-        max_q_action = col + 1
-        action = [  batch_position_actions[perspective][0],
-                    batch_position_actions[perspective][1],
-                    batch_position_actions[perspective][2],
-                    max_q_action]
-        q_values = q_values_table[perspective]
+        p = row
+        a = col + 1
 
     # select random action
     else:
-        random_perspective = random.randint(0, number_of_perspectives-1)
-        random_action = random.randint(0, number_of_actions-1) +1
-        action = [  batch_position_actions[random_perspective][0],
-                    batch_position_actions[random_perspective][1],
-                    batch_position_actions[random_perspective][2],
-                    random_action]
-        q_values = q_values_table[random_perspective]
+        p = random.randint(0, number_of_perspectives-1)
+        a = random.randint(0, number_of_actions-1) +1
 
+    action = [  batch_position_actions[p][0],
+                batch_position_actions[p][1],
+                batch_position_actions[p][2],
+                a]
+    q_values = q_values_table[p]
     return action, q_values
     
 
@@ -296,58 +291,3 @@ def generateTransition( action,
         action = Action((1, grid_shift, grid_shift), add_operator)
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
 
-
-# def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, device, model, discount_factor):
-#     """ Computes the absolute temporal difference value.
-
-#     Parameters
-#     ==========
-#     local_buffer:        (list) local transitions from the actor
-#     q_value_buffer:     (list) q values of taken steps
-#     grid_shift:         (int) grid shift of the toric code
-#     device:             (string) {"cpu", "cuda"}
-#     model:              (torch.nn) model to compute the q value
-#                         for the best action
-#     discount_factor:    (float) discount future rewards
-
-#     Returns
-#     =======
-#     (torch.Tensor) absolute TD error.
-#     """
-
-#     def toNetInput(batch, device):
-#         batch_input = np.stack(batch, axis=0)
-#         # from np to tensor
-#         tensor = from_numpy(batch_input)
-#         tensor = tensor.type('torch.Tensor')
-#         return tensor.to(device)
-    
-#     transitions         = Transition(*zip(*local_buffer))
-#     next_state_batch    = toNetInput(transitions.next_state, device) 
-#     reward_batch        = toNetInput(transitions.reward, device)
-
-#     max_q_value_buffer = []
-
-#     for state in next_state_batch:
-#         perspectives = generatePerspective(grid_shift, system_size, state)
-
-#         #perspectives = Perspective(*zip(*perspectives))
-#         #print(perspectives)
-        
-#         perspectives, positions = zip(*perspectives) 
-#         batch_perspectives = np.array(perspectives)
-#         #batch_perspectives = np.array(perspectives.perspective)
-#         batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor').to(device)
-
-#         with torch.no_grad():
-#             output = model(batch_perspectives)
-#             q_values_table = np.array(output.cpu())
-#             row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
-#             perspective = row
-#             max_q_action = col + 1
-#             max_q_value = q_values_table[row, col]
-#             max_q_value_buffer.append(max_q_value)
-    
-#     max_q_value_buffer  = toNetInput(np.array(max_q_value_buffer), device)
-#     q_value_buffer      = toNetInput(np.array(q_value_buffer), device)
-#     return torch.abs(reward_batch + discount_factor*max_q_value_buffer - q_value_buffer)

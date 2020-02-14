@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
         epsilons = [0.3]
 
-        dl.train(training_steps = 1001,
+        dl.train(training_steps = 101,
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,

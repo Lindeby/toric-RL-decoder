@@ -63,7 +63,7 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
         mean_q_per_p_error = 0
         steps_counter = 0
 
-        cfg = {"size":env_config["size"], "min_qbit_errors":env_config["min_qbit_errors"], "p_error":p_error}
+        cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":p_error}
         env = gym.make(env, config=cfg)
 
         for j in range(num_of_episodes):
@@ -186,6 +186,9 @@ def select_action_prediction(model, device, state, toric_size, number_of_actions
                     batch_position_actions[random_perspective][1],
                     batch_position_actions[random_perspective][2],
                     random_action]
+
+
+    
     return step, q_value
 
 
