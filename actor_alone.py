@@ -21,7 +21,7 @@ from numpy import save
 from pathlib import Path
 import sys
 import time
-import multiprocessing
+from torch.multiprocessing import Process
 
 def actor(num, num_transitions):
     
@@ -61,7 +61,8 @@ def actor(num, num_transitions):
     time_start = time.time()
     # main loop over training steps
     for iteration in range(generate_transitions):
-        
+        print(iteration)
+
         steps_per_episode += 1
         previous_state = state
         
@@ -78,22 +79,22 @@ def actor(num, num_transitions):
         state, reward, terminal_state, _ = env.step(action)
         # print(action)
         # generate transition to store in local memory buffer
-        transition = generateTransition(action,
-                                        reward,
-                                        grid_shift,
-                                        previous_state,
-                                        state,
-                                        terminal_state)
+        # transition = generateTransition(action,
+        #                                 reward,
+        #                                 grid_shift,
+        #                                 previous_state,
+        #                                 state,
+        #                                 terminal_state)
         
-        memory_transitions.append(transition)
-        memory_q_values.append(q_values)
+        # memory_transitions.append(transition)
+        # memory_q_values.append(q_values)
 
 
 
-        if terminal_state or steps_per_episode > 5:
-            state = env.reset()
-            steps_per_episode = 0
-            terminal_state = False
+        # if terminal_state or steps_per_episode > 5:
+        #     state = env.reset()
+        #     steps_per_episode = 0
+        #     terminal_state = False
     
     time_stop = time.time()
     time_elapsed = time_stop - time_start
@@ -236,12 +237,12 @@ def generateTransition( action,
 
 if __name__ == '__main__':
         
-    num_actors = int(sys.argv[1])
-    num_transitions = int(sys.argv[2])
+    num_actors = 1 #int(sys.argv[1])
+    num_transitions = 50# int(sys.argv[2])
     #num_actors = 2
  
     for i in range(num_actors):
-        a = multiprocessing.Process(target = actor, args=(i, num_transitions))
+        a = Process(target = actor, args=(i, num_transitions))
         a.start()
 
 #actor()
