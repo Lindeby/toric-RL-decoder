@@ -125,7 +125,7 @@ def actor(rank, world_size, args):
         previous_state = state
         
         # select action using epsilon greedy policy
-        action, q_values = select_action(number_of_actions=no_actions,
+        action, q_values = selectAction(number_of_actions=no_actions,
                                         epsilon=args["epsilon"], 
                                         grid_shift=grid_shift,
                                         toric_size = env.system_size,
@@ -173,7 +173,7 @@ def actor(rank, world_size, args):
             
             
 
-def select_action(number_of_actions, epsilon, grid_shift,
+def selectAction(number_of_actions, epsilon, grid_shift,
                     toric_size, state, model, device):
     """ Selects an action according to a epsilon-greedy policy.
 
