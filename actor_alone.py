@@ -7,6 +7,7 @@ from torch import from_numpy
 # import gym
 # from gym_ToricCode import ToricCode
 from src.ToricCode import ToricCode
+
 # python lib
 import numpy as np 
 import random
@@ -22,11 +23,13 @@ from numpy import save
 from pathlib import Path
 import sys
 import time
-from torch.multiprocessing import Process
+from guppy import hpy
+#from torch.multiprocessing import Process
 
 import objgraph
 
 def actor(num, num_transitions):
+
     
     print("hello ", num)
             
@@ -86,15 +89,15 @@ def actor(num, num_transitions):
 
         print(action)
         # generate transition to store in local memory buffer
-        # transition = generateTransition(action,
-        #                                 reward,
-        #                                 grid_shift,
-        #                                 previous_state,
-        #                                 state,
-        #                                 terminal_state)
+        transition = generateTransition(action,
+                                         reward,
+                                         grid_shift,
+                                         previous_state,
+                                         state,
+                                         terminal_state)
         
-        # memory_transitions.append(transition)
-        # memory_q_values.append(q_values)
+        memory_transitions.append(transition)
+        memory_q_values.append(q_values)
 
 
 
@@ -241,20 +244,17 @@ def generateTransition( action,
         action = Action((1, grid_shift, grid_shift), add_operator)
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
 
+#if __name__ == '__main__':
+#        
+#    num_actors = 1 #int(sys.argv[1])
+#    num_transitions = 50# int(sys.argv[2])
+#    #num_actors = 2
+# 
+#    for i in range(num_actors):
+#        a = Process(target = actor, args=(i, num_transitions))
+#        a.start()
 
-if __name__ == '__main__':
-        
-    num_actors = 1 #int(sys.argv[1])
-    num_transitions = 50# int(sys.argv[2])
-    #num_actors = 2
-    
-    actor(0, num_transitions)
-
-    # for i in range(num_actors):
-    #     a = Process(target = actor, args=(i, num_transitions))
-    #     a.start()
-
-#actor()
+actor(1,32 )
 
 # def computePriorities(local_buffer, q_value_buffer, grid_shift, system_size, device, model, discount_factor):
 #     """ Computes the absolute temporal difference value.
