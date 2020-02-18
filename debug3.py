@@ -1,10 +1,14 @@
 from src.ToricCode import ToricCode
 from src.actor import selectAction, generateTransition
 from src.nn.torch.ResNet import ResNet18
+import gym, gym_ToricCode
 
-import objgraph
+# saving
+from pathlib import Path
+from numpy import save
 
-
+# debug
+import objgraph, sys
 
 
 def worker(T):
@@ -13,16 +17,19 @@ def worker(T):
                 "p_error": 0.5
                 }
                  
-    env = ToricCode(config=config)
     model = ResNet18()
 
+    env = gym.make('toric-code-v0', config=config)
     state = env.reset()
 
-    objgraph.show_growth(limit=5)
+    mem_trans = []
+    mem_q_v   = []
+    max_steps_per_ep = 5
+    steps_count = 0
 
     for t in range(T):
 
-        a, _ = selectAction(
+        a, qs = selectAction(
             number_of_actions = 3,
             epsilon           = 0.4,
             grid_shift        = int(env.system_size/2),
@@ -36,10 +43,30 @@ def worker(T):
 
         transition = generateTransition(a, reward, int(env.system_size/2), state, next_state, terminal)
 
-        if t > 10:
-            objgraph.show_growth()
+        mem_trans.append(transition)
+        mem_q_v.append(qs)
+
+        print(sys.getsizeof(mem_trans))
+        print(sys.getsizeof(mem_q_v))
+
+        if terminal or steps_count > max_steps_per_ep:
+            state = env.reset()
+            steps_count = 0
+
+        steps_count += 1
+        
+    return mem_trans, mem_q_v
 
 
 if __name__ == "__main__":
-    worker(100)
+    objgraph.show_growth(limit=5)
+    mem_trans, mem_qs = worker(20)
+    objgraph.show_growth()
+
+    save_name = 'output_speed_test/transitions_'+str(0)+'.npy'
+    save_name_q = 'output_speed_test/q_values_'+str(0)+'.npy'
+    Path("output_speed_test").mkdir(parents=True, exist_ok=True)
+    save(save_name, mem_trans)
+    save(save_name_q, mem_qs)
+
 
