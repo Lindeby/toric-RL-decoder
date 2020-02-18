@@ -4,8 +4,9 @@ import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 
-import gym
-import gym_ToricCode
+# import gym
+# from gym_ToricCode import ToricCode
+from src.ToricCode import ToricCode
 # python lib
 import numpy as np 
 import random
@@ -22,6 +23,8 @@ from pathlib import Path
 import sys
 import time
 from torch.multiprocessing import Process
+
+import objgraph
 
 def actor(num, num_transitions):
     
@@ -43,9 +46,11 @@ def actor(num, num_transitions):
                     "min_qubit_errors": 0,
                     "p_error": 0.1
                  }
-    env = gym.make("toric-code-v0", config = env_config)
+    # env = gym.make("toric-code-v0", config = env_config)
 
-    no_actions = int(env.action_space.high[-1])
+    env = ToricCode(env_config)
+
+    no_actions = int(3)
     grid_shift = int(env.system_size/2)
     
 
@@ -58,6 +63,8 @@ def actor(num, num_transitions):
     steps_per_episode = 0
     terminal_state = False
    
+    print("Env size is {}".format(sys.getsizeof(env)))
+
     time_start = time.time()
     # main loop over training steps
     for iteration in range(generate_transitions):
@@ -75,9 +82,9 @@ def actor(num, num_transitions):
                                         model = model,
                                         device = device)
 
-
         state, reward, terminal_state, _ = env.step(action)
-        # print(action)
+
+        print(action)
         # generate transition to store in local memory buffer
         # transition = generateTransition(action,
         #                                 reward,
@@ -91,10 +98,10 @@ def actor(num, num_transitions):
 
 
 
-        # if terminal_state or steps_per_episode > 5:
-        #     state = env.reset()
-        #     steps_per_episode = 0
-        #     terminal_state = False
+        if terminal_state or steps_per_episode > 5:
+            state = env.reset()
+            steps_per_episode = 0
+            terminal_state = False
     
     time_stop = time.time()
     time_elapsed = time_stop - time_start
@@ -240,10 +247,12 @@ if __name__ == '__main__':
     num_actors = 1 #int(sys.argv[1])
     num_transitions = 50# int(sys.argv[2])
     #num_actors = 2
- 
-    for i in range(num_actors):
-        a = Process(target = actor, args=(i, num_transitions))
-        a.start()
+    
+    actor(0, num_transitions)
+
+    # for i in range(num_actors):
+    #     a = Process(target = actor, args=(i, num_transitions))
+    #     a.start()
 
 #actor()
 

@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
         # common system sizes are 3,5,7 and 9 
         # grid size must be odd! 
-        SYSTEM_SIZE = 3 
+        SYSTEM_SIZE = 9
         MIN_QBIT_ERRORS = 0
         P_ERROR = 0.1
 
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
         epsilons = [0.3]
 
-        dl.train(training_steps = 101,
+        dl.train(training_steps = 1000,
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,
@@ -69,8 +69,8 @@ if __name__ == "__main__":
                 policy_update = 100,
                 discount_factor = 0.9,
                 max_actions_per_episode = 75,
-                size_local_memory_buffer = 50,
-                eval_freq=100
+                size_local_memory_buffer = 1001,
+                eval_freq=1000
                 )
 
 

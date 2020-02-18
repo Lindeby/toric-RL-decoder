@@ -210,7 +210,7 @@ def learner(rank, world_size, args):
 
     # Start training
     for t in range(train_steps):
-        print("learner: traning step: ",t+1," / ",train_steps)
+        # print("learner: traning step: ",t+1," / ",train_steps)
 
         # wait until there is an item in queue
         while transition_queue_from_memory.empty():
