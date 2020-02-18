@@ -10,6 +10,7 @@ from torch import from_numpy
 import numpy as np
 import gym
 from queue import Empty
+
 # from file
 from src.util import Action, Perspective, Transition, generatePerspective
 from src.evaluation import evaluate
@@ -197,7 +198,7 @@ def learner(rank, world_size, args):
         optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
-    
+    print("Learner")
     # Push initial network params
     params = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
@@ -210,7 +211,7 @@ def learner(rank, world_size, args):
 
     # Start training
     for t in range(train_steps):
-        # print("learner: traning step: ",t+1," / ",train_steps)
+        print("learner: traning step: ",t+1," / ",train_steps)
 
         # wait until there is an item in queue
         while transition_queue_from_memory.empty():
@@ -229,7 +230,8 @@ def learner(rank, world_size, args):
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
+        # target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
@@ -313,13 +315,20 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     indices = []
     count_persp = 0
     largest_persp_batch = 0
+    batch_size = len(batch_state)
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
         perspectives = generatePerspective(1, 3, np.array(state))
-        perspectives = Perspective(*zip(*perspectives))
-        master_batch_perspectives.extend(perspectives.perspective)
 
-        ind = len(perspectives.perspective)
+        # no perspectives because terminal state
+        if len(perspectives) == 0:
+            batch_size -= 1
+            continue
+        
+        perspectives = Perspective(*zip(*perspectives)).perspective
+        master_batch_perspectives.extend(perspectives)
+
+        ind = len(perspectives)
         indices.append(count_persp + ind)
         largest_persp_batch = max(largest_persp_batch, ind)
         count_persp += ind
@@ -341,7 +350,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     maxpos_vect = np.column_stack(np.unravel_index(q_max_idx, q_values[0,:,:].shape))
 
     persp_idx, action_idx = np.split(maxpos_vect, 2, axis=1)
-    batch_idx = np.arange(len(batch_state))
+    batch_idx = np.arange(batch_size)
     batch_output = q_values[batch_idx, persp_idx.flatten(), action_idx.flatten()]
 
 
@@ -350,43 +359,42 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
 
 
-# def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
-#     """ Generates the max Q values for a batch of states.
-#     Params
-#     ======
-#     action_index: If the q value of the performed action is requested, 
-#     provide the chosen action index
-
-#     Return
-#     ======
-#     (torch.Tensor) A tensor containing the max q value for each state.
-#     """
-    
-#     model.eval()
-
-#     # Create containers
-#     batch_output = np.zeros(batch_size)
-#     batch_perspectives = np.zeros(shape=(batch_size, 2, system_size, system_size))
-#     batch_actions = np.zeros(batch_size)
-
-#     for i in range(batch_size):
-#         if (batch_state[i].cpu().sum().item() == 0):
-#             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
-#             print("Hello")
-#         else:
-#             # Generate perspectives
-#             perspectives = generatePerspective(grid_shift, system_size, np.array(batch_state[i])) 
-#             perspectives = Perspective(*zip(*perspectives))
-#             perspectives = np.array(perspectives.perspective)
-#             perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
-
-#             # prediction
-#             with torch.no_grad():
-#                 output = model(perspectives)
-#                 q_values = np.array(output.cpu())
-#                 row, col = np.unravel_index(np.argmax(q_values, axis=None), q_values.shape) 
-#                 batch_output[i] = q_values[row, col]      
-
-
-#     batch_output = from_numpy(batch_output).type('torch.Tensor')
-#     return batch_output
+def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
+    """ Generates the max Q values for a batch of states.
+    Params
+    ======
+    action_index: If the q value of the performed action is requested, 
+    provide the chosen action index
+ 
+    Return
+    ======
+    (torch.Tensor) A tensor containing the max q value for each state.
+    """
+     
+    model.eval()
+ 
+    # Create containers
+    batch_output = np.zeros(batch_size)
+    batch_perspectives = np.zeros(shape=(batch_size, 2, system_size, system_size))
+    batch_actions = np.zeros(batch_size)
+ 
+    for i in range(batch_size):
+        if (np.sum(batch_state[i]) == 0):
+            batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
+        else:
+            # Generate perspectives
+            perspectives = generatePerspective(grid_shift, system_size, np.array(batch_state[i])) 
+            perspectives = Perspective(*zip(*perspectives))
+            perspectives = np.array(perspectives.perspective)
+            perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
+ 
+            # prediction
+            with torch.no_grad():
+                output = model(perspectives)
+                q_values = np.array(output.cpu())
+                row, col = np.unravel_index(np.argmax(q_values, axis=None), q_values.shape) 
+                batch_output[i] = q_values[row, col]      
+ 
+ 
+    batch_output = from_numpy(batch_output).type('torch.Tensor')
+    return batch_output
