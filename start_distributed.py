@@ -6,9 +6,7 @@ import gym_ToricCode
 from torch.multiprocessing import set_start_method
 import torchvision.models as models
 
-# from src.nn.torch.NN import NN_11, NN_17
-from src.nn.torch.ResNet import ResNet18
-
+from src.nn.torch.NN import NN_11, NN_17
 from src.nn.torch.ResNet import ResNet18, ResNet34, ResNet50, ResNet101, ResNet152
 
 # valid network names: 
@@ -29,11 +27,11 @@ if __name__ == "__main__":
 
         # common system sizes are 3,5,7 and 9 
         # grid size must be odd! 
-        SYSTEM_SIZE = 9
+        SYSTEM_SIZE = 3
         MIN_QBIT_ERRORS = 0
         P_ERROR = 0.1
 
-        NETWORK = ResNet18
+        NETWORK = NN_11#ResNet18
 
         env_config = {  "size": SYSTEM_SIZE,
                         "min_qubit_errors": MIN_QBIT_ERRORS,
@@ -53,24 +51,25 @@ if __name__ == "__main__":
                          env_config = env_config,
                          device = device,
                          optimizer  = 'Adam',
-                         replay_size= 10000,
+                         replay_size= 100,
                          alpha = 0.6,
                          beta = 0.4
                         )
 
         epsilons = [0.3]
 
-        dl.train(training_steps = 1000,
+        dl.train(training_steps = 501,
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,
                 beta = 1,
+                n_step = 1,
                 batch_size = 16,
                 policy_update = 100,
-                discount_factor = 0.9,
+                discount_factor = 0.95,
                 max_actions_per_episode = 75,
-                size_local_memory_buffer = 1001,
-                eval_freq=1000
+                size_local_memory_buffer = 10,
+                eval_freq=100
                 )
 
 

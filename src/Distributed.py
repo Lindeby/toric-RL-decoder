@@ -7,7 +7,7 @@ import torch.distributed as dist
 from torch.multiprocessing import Process, Pipe, Queue, set_start_method
 # other files
 from .learner import learner
-from .actor import actor
+from .actor import actor, actor_n_step
 from .buffer import experienceReplayBuffer
 
 
@@ -52,6 +52,7 @@ class Distributed():
                     no_actors, 
                     learning_rate, 
                     epsilons,
+                    n_step,
                     beta,
                     batch_size, 
                     policy_update, 
@@ -65,6 +66,9 @@ class Distributed():
 
         if batch_size > self.replay_mem_size:
             raise ValueError("Please make sure replay memory size is larger than batch size.")
+
+        if 1 > n_step:
+            raise ValueError("Please have n_step >= 1")
 
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         actor_processes = []
@@ -163,7 +167,8 @@ class Distributed():
             "device"                        :self.device,
             "beta"                          :beta,
             "discount_factor"               :discount_factor,
-            "transition_queue_to_memory"    :transition_queue_to_memory
+            "transition_queue_to_memory"    :transition_queue_to_memory,
+            "n_step"                        :n_step
             }
     
         for rank in range(no_actors):
