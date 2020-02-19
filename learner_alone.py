@@ -15,7 +15,7 @@ from src.util import Action, Perspective, Transition, generatePerspective
 from src.evaluation import evaluate
 from src.nn.torch.NN import NN_17
 # debuging
-#import time
+import time
 
 from numpy import load
 
@@ -115,7 +115,7 @@ def learner():
 
 
     device = 'cpu'
-    train_steps = 64 #TODO: untill no more transitions?
+    train_steps = 1 #TODO: untill no more transitions?
     discount_factor = 0.9
     batch_size = 32 #TODO: not sure yet
 
@@ -147,7 +147,7 @@ def learner():
 
         start = iteration*b_size
         return memory[start: start+b_size] 
-    
+    start_time = time.time()
     # Start training
     for t in range(train_steps):
         print("learner: traning step: ",t+1," / ",train_steps)
@@ -165,8 +165,8 @@ def learner():
 
         
         # compute target network output
-        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
-        #target_output = predictMax(target_net, batch_next_state, batch_size, grid_shift, system_size, device)
+        #target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        target_output = predictMax(target_net, batch_next_state, batch_size, grid_shift, system_size, device)
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
@@ -184,7 +184,9 @@ def learner():
         loss.backward()
         optimizer.step()
 
-
+    stop_time = time.time()
+    elapsed_time = stop_time - start_time
+    print("elapsed time: ",elapsed_time)
 
     ## training done
     ##torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
