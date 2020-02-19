@@ -16,7 +16,7 @@ from src.util import Action, Perspective, Transition, generatePerspective
 from src.evaluation import evaluate
 
 # debuging
-import time
+import time, psutil
 
 
 def learner(rank, world_size, args):
@@ -169,14 +169,14 @@ def learner(rank, world_size, args):
     # Init policy net
     policy_class = args["policy_net"]
     policy_config = args["policy_config"] 
-    # policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
-    policy_net = policy_class()
+    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    # policy_net = policy_class()
     policy_net.to(device)
     # Init target net
     target_class = args["target_net"]
     target_config = args["target_config"] 
-    # target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
-    target_net = target_class()
+    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    # target_net = target_class()
     target_net.to(device)
     
     # Tensorboard
@@ -231,13 +231,13 @@ def learner(rank, world_size, args):
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        # target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
-        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
+        # target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
         
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
-        y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
+        y = batch_reward + ((~batch_terminal).type(torch.float) * discount_factor * target_output)
         loss = criterion(y, policy_output)
         
         # Compute priorities
@@ -319,6 +319,8 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     largest_persp_batch = 0
     batch_size = len(batch_state)
     terminal_state_idx = []
+    v0 = psutil.virtual_memory()
+    v1 = psutil.virtual_memory()
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
         perspectives = generatePerspective(int(system_size/2), system_size, np.array(state))
@@ -339,12 +341,16 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
     master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
 
+    v2 = psutil.virtual_memory()
+
+
     output = None
     q_values = None
     model.eval()
     with torch.no_grad():
         output = model(master_batch_perspectives)
         q_values = np.array(output.cpu())
+    v3 = psutil.virtual_memory()
     
     # split q-values back into batches
     q_values = np.split(q_values, indices[:-1])
@@ -358,8 +364,17 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     batch_output = q_values[batch_idx, persp_idx.flatten(), action_idx.flatten()]
 
     batch_output = np.insert(batch_output, terminal_state_idx, 0)
-
     batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
+    v4 = psutil.virtual_memory()
+
+    print("Started with {}".format(v0.active))
+    print("Increase genPersp {}".format(v2.active-v1.active))
+    print("Increase model {}".format(v3.active-v2.active))
+    print("Before return {}".format(v4.active-v3.active))
+
+    print("")
+
+
     return batch_output
 
 
