@@ -4,7 +4,7 @@ import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 
-# import gym
+import gym
 # python lib
 import numpy as np 
 import random
@@ -107,7 +107,7 @@ def actor(rank, world_size, args):
     # main loop over training steps
     while True:
         # print(steps_counter)
-        # steps_counter += 1
+        steps_counter += 1
         if con_learner.poll():
             msg, weights = con_learner.recv()
             
@@ -249,7 +249,7 @@ def computePriorities(local_buffer, q_values_buffer, discount_factor):
     q_values_max_next_state = np.amax(np.roll(q_values_buffer, -1), axis=1)
     q_values_state          = np.array([q_values_buffer[i][a.action-1] for i, a in enumerate(transitions.action)])
 
-    return np.absolute(reward_batch - discount_factor*q_values_max_next_state - q_values_state)
+    return np.absolute(reward_batch + discount_factor*q_values_max_next_state - q_values_state)
 
 
 def generateTransition( action, 
@@ -330,6 +330,7 @@ def actor_n_step(rank, world_size, args):
         , beta:                     (float) parameter to determin the
                                     level of compensation for bias when
                                     computing priorities
+        , n_step:                   (int) n-step learning
         , con_learner:              (multiprocessing.Connection) connection
                                     where new weights are received and termination
         , transition_queue:         (multiprocessing.Queue) SimpleQueue where
@@ -347,19 +348,20 @@ def actor_n_step(rank, world_size, args):
     discount_factor = args["discount_factor"]
 
     # local buffer of fixed size to store transitions before sending
-    local_buffer = [None] * args["size_local_memory_buffer"]
-    q_values_buffer = [None] * args["size_local_memory_buffer"]
+    local_buffer_trans  = [None] * args["size_local_memory_buffer"]
+    local_buffer_qs     = [None] * args["size_local_memory_buffer"]
+    local_buffer_qs_ns  = [None] * args["size_local_memory_buffer"]
+
 
     # N-step 
-    n_step      = 3
-    n_step_idx  = 0
+    n_step               = args["n_step"]
+    n_step_idx           = 0
     n_step_state         = [None] * n_step
     n_step_action        = [None] * n_step
-    n_step_reward        = [None] * n_step
-    n_step_discount      = [None] * n_step
+    n_step_reward        = [0   ] * n_step
     n_step_n_state       = [None] * n_step
     n_step_Qs_state      = [None] * n_step
-    n_step_Qs_n_state    = [None] * n_step
+    n_step_full          = False
 
 
     # set network to eval mode
@@ -396,7 +398,6 @@ def actor_n_step(rank, world_size, args):
     # startup
     state = env.reset()
     steps_per_episode = 0
-    terminal_state = False
    
     # main loop over training steps
     while True:
@@ -426,48 +427,48 @@ def actor_n_step(rank, world_size, args):
 
         state, reward, terminal_state, _ = env.step(action)
 
+        if n_step_full:
+            a   = n_step_action[   n_step_idx - n_step]
+            st  = n_step_state[    n_step_idx - n_step]
+            r   = n_step_reward[   n_step_idx - n_step]
+            # generate transition to store in local memory buffer
+            transition = generateTransition(a, r, grid_shift, st, state, terminal_state)
+            local_buffer_trans[ local_memory_index]  = transition
+            local_buffer_qs[    local_memory_index]  = n_step_Qs_state[n_step_idx - n_step]
+            local_buffer_qs_ns[ local_memory_index]  = q_values
+            local_memory_index += 1
+
         # n-step
-        # TODO: Think about terminal state
         n_step_state[       n_step_idx          ] = previous_state
         n_step_action[      n_step_idx          ] = action
         n_step_n_state[     n_step_idx          ] = state
         n_step_Qs_state[    n_step_idx          ] = q_values
-        n_step_Qs_n_state[  n_step_idx - n_step ] = q_values
         for n in range(n_step):
             n_step_reward[  n_step_idx-n-1] += (discount_factor**n)*reward
-            n_step_discount[n_step_idx-n-1 ] = discount_factor**n
+        n_step_idx = 0 if n_step_idx >= n_step-1 else n_step_idx +1
 
-        if not None in n_step_state:
-            # generate transition for t-3 and store to local buffer
-            # generate transition to store in local memory buffer
-            transition = generateTransition(action,
-                                            reward,
-                                            grid_shift,
-                                            previous_state,
-                                            state,
-                                            terminal_state)
-            # local_buffer[local_memory_index] = transition
-            # q_values_buffer[local_memory_index] = q_values
-            pass
-
-
+        if n_step_idx >= n_step-1:
+            n_step_full = True
 
         if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
             # disregard lates transition since it has no next state to compute priority for
-            priorities = computePriorities(local_buffer[0:-1], q_values_buffer[0:-1], args["discount_factor"])      
-            to_send = [*zip(local_buffer, priorities)]
+            priorities = computePriorities_n_step(local_buffer_trans[:-n_step], local_buffer_qs[0:-n_step], local_buffer_qs_ns[:-n_step], discount_factor**n_step)      
+            to_send = [*zip(local_buffer_trans, priorities)]
 
             # send buffer to learner
             transition_queue_to_memory.put(to_send)
             local_memory_index = 0
-        else:
-            local_memory_index += 1
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
-            # TODO: Clear n-step buffers
+            # TODO: Truncated n-step rewards and add transistion
+            n_step_state         = [None] * n_step
+            n_step_action        = [None] * n_step
+            n_step_reward        = [0] * n_step
+            n_step_n_state       = [None] * n_step
+            n_step_Qs_state      = [None] * n_step
+            n_step_full          = False
             state = env.reset()
             steps_per_episode = 0
-            terminal_state = False
     
     # ready to terminate
     while True:
@@ -476,4 +477,26 @@ def actor_n_step(rank, world_size, args):
             transition_queue_to_memory.close()
             con_learner.send("ok")
             break
-       
+
+
+
+def computePriorities_n_step(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
+    """ Computes the absolute temporal difference value.
+
+    Parameters
+    ==========
+    local_buffer:        (list) local transitions from the actor
+    q_values_buffer:     (list) q values for respective action
+    discount_factor:     (float) discount future rewards
+
+    Returns
+    =======
+    (np.array) absolute TD error. (r + Qmax(st+1, a) - Q(st,a))
+    """
+
+    transitions     = Transition(*zip(*local_buffer_trans))
+    reward_batch    = np.array(transitions.reward)          # get rewards
+    qv_max_ns       = np.amax(local_buffer_qs_ns, axis=1)   # get Qmax
+    qv_st           = np.array([local_buffer_qs[i][a.action-1] for i, a in enumerate(transitions.action)])
+
+    return np.absolute(reward_batch + discount_factor*qv_max_ns - qv_st)
