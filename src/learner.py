@@ -198,7 +198,7 @@ def learner(rank, world_size, args):
         optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
-    print("Learner")
+
     # Push initial network params
     params = parameters_to_vector(policy_net.parameters()) 
     # weights = policy_net.state_dict()
@@ -206,6 +206,7 @@ def learner(rank, world_size, args):
         msg = ("weights", params.detach())
         con_actors[actor].send(msg)
     
+    print("Learner waiting for replay memory to be filled.")
     # Wait until replay memory has enough transitions for one batch
     while transition_queue_from_memory.empty(): continue
 
@@ -230,8 +231,9 @@ def learner(rank, world_size, args):
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
-        # target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        # target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
+        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
@@ -316,19 +318,21 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     count_persp = 0
     largest_persp_batch = 0
     batch_size = len(batch_state)
+    terminal_state_idx = []
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
-        perspectives = generatePerspective(1, 3, np.array(state))
+        perspectives = generatePerspective(int(system_size/2), system_size, np.array(state))
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
             batch_size -= 1
+            terminal_state_idx.append(i)
             continue
         
-        perspectives = Perspective(*zip(*perspectives)).perspective
-        master_batch_perspectives.extend(perspectives)
+        perspectives = Perspective(*zip(*perspectives))
+        master_batch_perspectives.extend(perspectives.perspective)
 
-        ind = len(perspectives)
+        ind = len(perspectives.perspective)
         indices.append(count_persp + ind)
         largest_persp_batch = max(largest_persp_batch, ind)
         count_persp += ind
@@ -353,6 +357,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     batch_idx = np.arange(batch_size)
     batch_output = q_values[batch_idx, persp_idx.flatten(), action_idx.flatten()]
 
+    batch_output = np.insert(batch_output, terminal_state_idx, 0)
 
     batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
     return batch_output
@@ -379,7 +384,7 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
     batch_actions = np.zeros(batch_size)
  
     for i in range(batch_size):
-        if (np.sum(batch_state[i]) == 0):
+        if (batch_state[i].cpu().sum().item() == 0):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
         else:
             # Generate perspectives
