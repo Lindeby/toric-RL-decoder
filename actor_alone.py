@@ -1,4 +1,3 @@
-from src.ToricCode import ToricCode
 from src.actor import selectAction, generateTransition
 from src.nn.torch.ResNet import ResNet18
 import gym, gym_ToricCode
@@ -8,7 +7,7 @@ from pathlib import Path
 from numpy import save
 
 # debug
-import objgraph, sys
+import objgraph, sys, psutil
 
 
 def worker(T):
@@ -16,7 +15,10 @@ def worker(T):
                 "min_qubit_errors": 0,
                 "p_error": 0.5
                 }
-                 
+    
+    vm0 = psutil.virtual_memory()
+    vm1 = psutil.virtual_memory()
+    
     model = ResNet18()
 
     env = gym.make('toric-code-v0', config=config)
@@ -46,13 +48,27 @@ def worker(T):
         mem_trans.append(transition)
         mem_q_v.append(qs)
 
-        print(sys.getsizeof(mem_trans))
-        print(sys.getsizeof(mem_q_v))
+        vm2 = psutil.virtual_memory()
+
+        print("Total RAM use: {}mb".format(vm2.active/1048576))
+        print("RAM increase: {}mb".format((vm2.active - vm1.active)/1048576))
+        print("RAM total increase {}mb".format((vm2.active - vm0.active)/1048576))
+
+        vm1 = vm2
+
+        # print(sys.getsizeof(mem_trans))
+        # print(sys.getsizeof(mem_q_v))
 
         if terminal or steps_count > max_steps_per_ep:
             state = env.reset()
+            print("Reset")
             steps_count = 0
 
+        state = next_state
+
+        # state = env.reset()
+
+        print("")
         steps_count += 1
         
     return mem_trans, mem_q_v
@@ -60,13 +76,13 @@ def worker(T):
 
 if __name__ == "__main__":
     objgraph.show_growth(limit=5)
-    mem_trans, mem_qs = worker(20)
+    mem_trans, mem_qs = worker(1000)
     objgraph.show_growth()
 
-    save_name = 'output_speed_test/transitions_'+str(0)+'.npy'
-    save_name_q = 'output_speed_test/q_values_'+str(0)+'.npy'
-    Path("output_speed_test").mkdir(parents=True, exist_ok=True)
-    save(save_name, mem_trans)
-    save(save_name_q, mem_qs)
+    # save_name = 'output_speed_test/transitions_'+str(0)+'.npy'
+    # save_name_q = 'output_speed_test/q_values_'+str(0)+'.npy'
+    # Path("output_speed_test").mkdir(parents=True, exist_ok=True)
+    # save(save_name, mem_trans)
+    # save(save_name_q, mem_qs)
 
 
