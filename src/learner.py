@@ -319,8 +319,6 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     largest_persp_batch = 0
     batch_size = len(batch_state)
     terminal_state_idx = []
-    v0 = psutil.virtual_memory()
-    v1 = psutil.virtual_memory()
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
         perspectives = generatePerspective(int(system_size/2), system_size, np.array(state.cpu()))
@@ -341,16 +339,12 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
     master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
 
-    v2 = psutil.virtual_memory()
-
-
     output = None
     q_values = None
     model.eval()
     with torch.no_grad():
         output = model(master_batch_perspectives)
         q_values = np.array(output.cpu())
-    v3 = psutil.virtual_memory()
     
     # split q-values back into batches
     q_values = np.split(q_values, indices[:-1])
@@ -365,15 +359,6 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
     batch_output = np.insert(batch_output, terminal_state_idx, 0)
     batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
-    v4 = psutil.virtual_memory()
-
-    print("Started with {}".format(v0.active))
-    print("Increase genPersp {}".format(v2.active-v1.active))
-    print("Increase model {}".format(v3.active-v2.active))
-    print("Before return {}".format(v4.active-v3.active))
-
-    print("")
-
 
     return batch_output
 
