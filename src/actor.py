@@ -12,6 +12,8 @@ from copy import deepcopy
 # from file 
 from src.util import Action, Perspective, Transition, generatePerspective, rotate_state, shift_state
 
+# Quality of life
+from src.nn.torch.NN import NN_11, NN_17
 
 def actor(rank, world_size, args):
     """ An actor that performs actions in an environment.
@@ -71,9 +73,11 @@ def actor(rank, world_size, args):
     # set network to eval mode
     NN = args["model"]
     NN_config = args["model_config"]
-
-    model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
-    # model = NN()
+    if NN == NN_11 or NN == NN_17:
+        model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
+    else:
+        model = NN()
+    
     model.to(device)
     model.eval()
     
@@ -367,9 +371,11 @@ def actor_n_step(rank, world_size, args):
     # set network to eval mode
     NN = args["model"]
     NN_config = args["model_config"]
-
-    model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
-    # model = NN()
+    if NN == NN_11 or NN == NN_17:
+        model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
+    else:
+        model = NN()
+        
     model.to(device)
     model.eval()
     
