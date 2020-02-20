@@ -293,7 +293,7 @@ def learner(rank, world_size, args):
         
 
     # training done
-    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+    # torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
     tb.close()
     terminate()
     
