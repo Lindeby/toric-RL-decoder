@@ -339,7 +339,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
         largest_persp_batch = max(largest_persp_batch, ind)
         count_persp += ind
 
-        master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
+    master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
 
     output = None
     q_values = None
