@@ -329,7 +329,8 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
             terminal_state_idx.append(i)
             perspectives = np.zeros((2,system_size, system_size))
         else:
-            perspectives = Perspective(*zip(*perspectives)).perspective
+            perspectives = Perspective(*zip(*perspectives))
+            perspectives = perspectives.perspective
 
         master_batch_perspectives.extend(perspectives)
 
