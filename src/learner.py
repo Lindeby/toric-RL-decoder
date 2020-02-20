@@ -313,7 +313,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     (torch.Tensor) A tensor containing the max q value for each state.
     """
     
-    master_batch_perspectives = []
+    master_batch_perspectives = np.array([])
     indices = []
     count_persp = 0
     largest_persp_batch = 0
@@ -334,13 +334,16 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
         master_batch_perspectives.extend(perspectives)
 
-        ind = len(perspectives.perspective)
+        ind = len(perspectives)
         indices.append(count_persp + ind)
         largest_persp_batch = max(largest_persp_batch, ind)
         count_persp += ind
 
-    master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
-
+    try:
+        master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
+    except:
+        print(master_batch_perspectives)
+        raise ValueError
     output = None
     q_values = None
     model.eval()
