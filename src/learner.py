@@ -16,7 +16,7 @@ from src.util import Action, Perspective, Transition, generatePerspective
 from src.evaluation import evaluate
 
 # Quality of life
-from src.network.nn.torch.NN import NN_11, NN_17
+from src.nn.torch.NN import NN_11, NN_17
 
 # debuging
 import time, psutil
@@ -39,12 +39,6 @@ def learner(rank, world_size, args):
         , optimizer:                          (String)
         , policy_net:                         (torch.nn)
         , policy_config:                      (dict)
-        {
-            system_size:        (int) size of the toric grid.
-            , number_of_actions (int)
-        }
-        , target_net:                         (torch.nn)
-        , target_config:                      (dict)
         {
             system_size:        (int) size of the toric grid.
             , number_of_actions (int)

@@ -16,8 +16,6 @@ class Distributed():
         
     def __init__(self,  policy_net,
                         policy_config,
-                        target_net,
-                        target_config,
                         env,
                         env_config,
                         device, 
@@ -30,8 +28,6 @@ class Distributed():
 
         self.policy_net = policy_net
         self.policy_config = policy_config
-        self.target_net = target_net
-        self.target_config = target_config
         
         self.env = env
         self.env_config = env_config
@@ -105,8 +101,6 @@ class Distributed():
             "optimizer"                            :self.optimizer,
             "policy_net"                           :self.policy_net,
             "policy_config"                        :self.policy_config,
-            "target_net"                           :self.target_net,
-            "target_config"                        :self.target_config,
             "device"                               :self.device,
             "transition_queue_from_memory"         :transition_queue_from_memory,
             "update_priorities_queue_to_memory"    :update_priorities_queue_to_memory,

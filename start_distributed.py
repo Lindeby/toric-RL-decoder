@@ -45,8 +45,6 @@ if __name__ == "__main__":
 
         dl = Distributed(policy_net = NETWORK,
                          policy_config = model_config,
-                         target_net = NETWORK,
-                         target_config = model_config,
                          env = "toric-code-v0",
                          env_config = env_config,
                          device = device,
@@ -58,7 +56,7 @@ if __name__ == "__main__":
 
         epsilons = [0.3]
 
-        dl.train(training_steps = 501,
+        dl.train(training_steps = 1001,
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,
@@ -68,7 +66,7 @@ if __name__ == "__main__":
                 policy_update = 100,
                 discount_factor = 0.95,
                 max_actions_per_episode = 75,
-                size_local_memory_buffer = 10,
+                size_local_memory_buffer = 1000,
                 eval_freq=100
                 )
 
