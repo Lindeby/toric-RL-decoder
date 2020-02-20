@@ -341,6 +341,9 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
     try:
         master_batch_perspectives = np.array(master_batch_perspectives)
+        print(type(master_batch_perspectives))
+        master_batch_perspectives = master_batch_perspectives.astype(np.int)
+        print(type(master_batch_perspectives))
         master_batch_perspectives = from_numpy(master_batch_perspectives)
         master_batch_perspectives = master_batch_perspectives.type('torch.Tensor')
         master_batch_perspectives = master_batch_perspectives.to(device)
