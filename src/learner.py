@@ -317,7 +317,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     indices = []
     count_persp = 0
     largest_persp_batch = 0
-    batch_size = len(batch_state)
+    # batch_size = len(batch_state)
     terminal_state_idx = []
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
@@ -325,12 +325,13 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
-            batch_size -= 1
+            # batch_size -= 1
             terminal_state_idx.append(i)
-            continue
-        
-        perspectives = Perspective(*zip(*perspectives))
-        master_batch_perspectives.extend(perspectives.perspective)
+            perspectives = np.zeros((2,system_size, system_size))
+        else:
+            perspectives = Perspective(*zip(*perspectives)).perspective
+
+        master_batch_perspectives.extend(perspectives)
 
         ind = len(perspectives.perspective)
         indices.append(count_persp + ind)
@@ -354,10 +355,11 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     maxpos_vect = np.column_stack(np.unravel_index(q_max_idx, q_values[0,:,:].shape))
 
     persp_idx, action_idx = np.split(maxpos_vect, 2, axis=1)
-    batch_idx = np.arange(batch_size)
+    batch_idx = np.arange(len(maxpos_vect))
     batch_output = q_values[batch_idx, persp_idx.flatten(), action_idx.flatten()]
 
-    batch_output = np.insert(batch_output, terminal_state_idx, 0)
+    # batch_output = np.insert(batch_output, terminal_state_idx, 0)
+    batch_output[terminal_state_idx] = 0
     batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
 
     return batch_output
