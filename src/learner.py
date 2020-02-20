@@ -152,6 +152,9 @@ def learner(rank, world_size, args):
 
         return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, index
 
+    # Tensorboard
+    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
+    update_tb = args["update_tb"]
 
     update_priorities_queue_to_memory = args["update_priorities_queue_to_memory"]
     transition_queue_from_memory = args["transition_queue_from_memory"]
@@ -174,31 +177,22 @@ def learner(rank, world_size, args):
     policy_config = args["policy_config"] 
     if policy_class == NN_11 or policy_class == NN_17:
         policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+        target_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"]) 
     else:
         policy_net = policy_class()
-    policy_net.to(device)
+        target_net = policy_class()
 
-    # Init target net
-    target_class = args["target_net"]
-    target_config = args["target_config"]
-    if target_class == NN_11 or target_class == NN_17:
-        target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
-    else:
-        target_net = target_class() 
+    policy_net.to(device)
     target_net.to(device)
     
-    # Tensorboard
-    tb = SummaryWriter(log_dir=args["tb_log_dir"]+"_learner", filename_suffix="_learner")
-    update_tb = args["update_tb"]
+    # copy policy params to target
+    params = parameters_to_vector(policy_net.parameters()) 
+    vector_to_parameters(params, target_net.parameters())
 
-    # init counter
-    push_new_weights = 0
-
-    # logging
-    wait_time = 0
-    sum_loss = 0
-    sum_wait_time = 0
-
+    # Push initial network params
+    for actor in range(world_size-2):
+        msg = ("weights", params.detach())
+        con_actors[actor].send(msg)
 
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
@@ -207,12 +201,14 @@ def learner(rank, world_size, args):
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
-    # Push initial network params
-    params = parameters_to_vector(policy_net.parameters()) 
-    # weights = policy_net.state_dict()
-    for actor in range(world_size-2):
-        msg = ("weights", params.detach())
-        con_actors[actor].send(msg)
+
+    # init counter
+    push_new_weights = 0
+
+    # logging
+    wait_time = 0
+    sum_loss = 0
+    sum_wait_time = 0
     
     print("Learner waiting for replay memory to be filled.")
     # Wait until replay memory has enough transitions for one batch
@@ -266,7 +262,11 @@ def learner(rank, world_size, args):
         push_new_weights += 1
         if push_new_weights >= args["policy_update"]:
             params = parameters_to_vector(policy_net.parameters())
+            # update policy network
+            vector_to_parameters(params, target_net.parameters())
+            target_net.to(device) # dont know if this is needed
             msg = ("weights", params.detach())
+            # send weights to actors
             for actor in range(world_size-2):
                 con_actors[actor].send(msg)
             push_new_weights = 0
