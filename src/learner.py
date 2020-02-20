@@ -15,6 +15,9 @@ from queue import Empty
 from src.util import Action, Perspective, Transition, generatePerspective
 from src.evaluation import evaluate
 
+# Quality of life
+from src.network.nn.torch.NN import NN_11, NN_17
+
 # debuging
 import time, psutil
 
@@ -169,14 +172,19 @@ def learner(rank, world_size, args):
     # Init policy net
     policy_class = args["policy_net"]
     policy_config = args["policy_config"] 
-    policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
-    # policy_net = policy_class()
+    if policy_class == NN_11 or policy_class == NN_17:
+        policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], args["device"])
+    else:
+        policy_net = policy_class()
     policy_net.to(device)
+
     # Init target net
     target_class = args["target_net"]
-    target_config = args["target_config"] 
-    target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
-    # target_net = target_class()
+    target_config = args["target_config"]
+    if target_class == NN_11 or target_class == NN_17:
+        target_net = target_class(target_config["system_size"], target_config["number_of_actions"], args["device"])
+    else:
+        target_net = target_class() 
     target_net.to(device)
     
     # Tensorboard
