@@ -114,8 +114,8 @@ def learner():
         return batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal
 
 
-    device = 'cpu'
-    train_steps = 1 #TODO: untill no more transitions?
+    device = 'cuda'
+    train_steps = 64 #TODO: untill no more transitions?
     discount_factor = 0.9
     batch_size = 32 #TODO: not sure yet
 
@@ -165,8 +165,8 @@ def learner():
 
         
         # compute target network output
-        #target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
-        target_output = predictMax(target_net, batch_next_state, batch_size, grid_shift, system_size, device)
+        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        #target_output = predictMax(target_net, batch_next_state, batch_size, grid_shift, system_size, device)
         target_output = target_output.to(device)
 
         # compute loss and update replay memory

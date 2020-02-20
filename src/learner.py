@@ -323,7 +323,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     v1 = psutil.virtual_memory()
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
-        perspectives = generatePerspective(int(system_size/2), system_size, np.array(state))
+        perspectives = generatePerspective(int(system_size/2), system_size, np.array(state.cpu()))
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
@@ -403,7 +403,7 @@ def predictMax(model, batch_state, batch_size, grid_shift, system_size, device):
             batch_perspectives[i,:,:,:] = np.zeros(shape=(2, system_size, system_size))
         else:
             # Generate perspectives
-            perspectives = generatePerspective(grid_shift, system_size, np.array(batch_state[i])) 
+            perspectives = generatePerspective(grid_shift, system_size, np.array(batch_state[i].cpu())) 
             perspectives = Perspective(*zip(*perspectives))
             perspectives = np.array(perspectives.perspective)
             perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
