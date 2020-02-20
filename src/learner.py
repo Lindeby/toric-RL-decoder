@@ -327,7 +327,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
         if len(perspectives) == 0:
             # batch_size -= 1
             terminal_state_idx.append(i)
-            perspectives = np.zeros((2,system_size, system_size))
+            perspectives = np.zeros((1 , 2,system_size, system_size))
         else:
             perspectives = Perspective(*zip(*perspectives))
             perspectives = perspectives.perspective
@@ -339,18 +339,8 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
         largest_persp_batch = max(largest_persp_batch, ind)
         count_persp += ind
 
-    try:
-        master_batch_perspectives = np.array(master_batch_perspectives)
-        print(type(master_batch_perspectives))
-        master_batch_perspectives = master_batch_perspectives.astype(np.int)
-        print(type(master_batch_perspectives))
-        master_batch_perspectives = from_numpy(master_batch_perspectives)
-        master_batch_perspectives = master_batch_perspectives.type('torch.Tensor')
-        master_batch_perspectives = master_batch_perspectives.to(device)
-        # master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
-    except:
-        print(master_batch_perspectives)
-        raise ValueError
+        master_batch_perspectives = from_numpy(np.array(master_batch_perspectives)).type('torch.Tensor').to(device)
+
     output = None
     q_values = None
     model.eval()
