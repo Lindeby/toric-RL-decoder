@@ -231,8 +231,8 @@ def learner(rank, world_size, args):
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
-        # target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
+        # target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
+        target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
         
         target_output = target_output.to(device)
 
@@ -293,7 +293,7 @@ def learner(rank, world_size, args):
         
 
     # training done
-    # torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
     tb.close()
     terminate()
     
@@ -317,7 +317,6 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     indices = []
     count_persp = 0
     largest_persp_batch = 0
-    # batch_size = len(batch_state)
     terminal_state_idx = []
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
@@ -325,7 +324,6 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
-            # batch_size -= 1
             terminal_state_idx.append(i)
             perspectives = np.zeros((1 , 2,system_size, system_size))
         else:
@@ -359,7 +357,6 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     batch_idx = np.arange(len(maxpos_vect))
     batch_output = q_values[batch_idx, persp_idx.flatten(), action_idx.flatten()]
 
-    # batch_output = np.insert(batch_output, terminal_state_idx, 0)
     batch_output[terminal_state_idx] = 0
     batch_output = from_numpy(np.array(batch_output)).type('torch.Tensor')
 
