@@ -241,8 +241,8 @@ def learner(rank, world_size, args):
         loss = criterion(y, policy_output)
         
         # Compute priorities
-        priorities = weights * loss.cpu()
-        priorities = np.absolute(priorities.detach().numpy())
+        priorities = weights * loss
+        priorities = np.absolute(priorities.cpu().detach().numpy())
         
         optimizer.zero_grad()
         loss = loss.mean()
