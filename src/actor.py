@@ -465,19 +465,10 @@ def actor_n_step(rank, world_size, args):
             local_memory_index = 0
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
-            # Add truncated n-step transitions to local buffer
-            for n in range(n_step):
-                # TODO: Check how terminal state will act in training
-                trans = generateTransition(n_step_action[n_step_idx-1 - n], n_step_reward[n_step_idx-1 - n], grid_shift, n_step_state[n_step_idx-1 - n], state, terminal_state)
-                local_buffer_trans[local_memory_index] = transition
-                local_buffer_qs[   local_memory_index] = n_step_Qs_state[n_step_idx-1 - n]
-                local_buffer_qs_ns[local_memory_index] = q_values
-                local_memory_index += 1
-
             # Reset n_step buffers
             n_step_state         = [None] * n_step
             n_step_action        = [None] * n_step
-            n_step_reward        = [0] * n_step
+            n_step_reward        = [0   ] * n_step
             n_step_n_state       = [None] * n_step
             n_step_Qs_state      = [None] * n_step
             n_step_full          = False
