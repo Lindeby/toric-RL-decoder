@@ -296,8 +296,8 @@ def generateTransition( action,
 
 
 def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
-    for t in range(1, n_step+1):
-        reward_buffer[idx - t] += (discount_factor)**(t-1)*reward
+    for t in range(0, n_step):
+        reward_buffer[idx - t] += (discount_factor)**(t)*reward
     return reward_buffer
 
 
