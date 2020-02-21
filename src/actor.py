@@ -149,10 +149,9 @@ def actor(rank, world_size, args):
         q_values_buffer[local_memory_index] = q_values
         local_memory_index += 1
 
-
         if (local_memory_index >= (args["size_local_memory_buffer"])): 
             # disregard lates transition since it has no next state to compute priority for
-            priorities = computePriorities(local_buffer[0:-1], q_values_buffer[0:-1], args["discount_factor"])      
+            priorities = computePriorities(local_buffer, q_values_buffer, args["discount_factor"])      
             to_send = [*zip(local_buffer, priorities)]
 
             # send buffer to learner
