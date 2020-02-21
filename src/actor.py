@@ -150,10 +150,6 @@ def actor(rank, world_size, args):
         local_memory_index += 1
 
         if (local_memory_index >= (args["size_local_memory_buffer"])): 
-            print("Local Mem idx: {}".format(local_memory_index))
-            print("Local Mem [-1]: {}".format(local_memory_index))
-            #print()
-            #print()
 
             priorities = computePriorities(local_buffer, q_values_buffer, args["discount_factor"])      
             to_send = [*zip(local_buffer, priorities)]
