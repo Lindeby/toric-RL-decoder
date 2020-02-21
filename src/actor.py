@@ -16,9 +16,7 @@ from src.util import Action, Perspective, Transition, generatePerspective, rotat
 from src.nn.torch.NN import NN_11, NN_17
             
 
-
-
-def actor_n_step(rank, world_size, args):
+def actor(rank, world_size, args):
     """ An actor that performs actions in an environment.
 
     Params
@@ -168,10 +166,10 @@ def actor_n_step(rank, world_size, args):
         if buffer_idx >= size_local_memory_buffer:
             
             # disregard latest transition ssince it has no next state to compute priority for
-            priorities = computePriorities_n_step(local_buffer_T[:-n_step],
-                                                  local_buffer_Q[:-n_step],
-                                                  np.roll(local_buffer_Q, -n_step)[:-n_step],
-                                                  discount_factor**n_step)      
+            priorities = computePriorities( local_buffer_T[:-n_step],
+                                            local_buffer_Q[:-n_step],
+                                            np.roll(local_buffer_Q, -n_step)[:-n_step],
+                                            discount_factor**n_step)      
             to_send = [*zip(local_buffer_T[:-n_step], priorities)]
 
             # send buffer to learner
@@ -303,7 +301,7 @@ def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
     return reward_buffer
 
 
-def computePriorities_n_step(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
+def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
     """ Computes the absolute temporal difference value.
 
     Parameters
@@ -325,7 +323,7 @@ def computePriorities_n_step(local_buffer_trans, local_buffer_qs, local_buffer_q
     return np.absolute(reward_batch + discount_factor*qv_max_ns - qv_st)
 
 
-# def actor(rank, world_size, args):
+# def actorOld(rank, world_size, args):
 #     """ An actor that performs actions in an environment.
 
 #     Params
@@ -482,7 +480,7 @@ def computePriorities_n_step(local_buffer_trans, local_buffer_qs, local_buffer_q
 #             break
 
 
-# def computePriorities(local_buffer, q_values_buffer, discount_factor):
+# def computePrioritiesOld(local_buffer, q_values_buffer, discount_factor):
 #     """ Computes the absolute temporal difference value.
 
 #     Parameters
