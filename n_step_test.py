@@ -243,9 +243,11 @@ if __name__ == "__main__":
         t = one_step_trans[i][0]
         pr = one_step_trans[i][1]
 
-        if not np.all(np.equal(t.state, nt.state)) or not t.reward == nt.reward or not np.all(np.equal(t.next_state, nt.next_state)) or not pr==npr:
+        if not (np.all(np.equal(t.state, nt.state)) and t.reward == nt.reward and np.all(np.equal(t.next_state, nt.next_state)) and pr==npr):
             print("Actions: {}, {}".format(t.action, nt.action))
             print("State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.state, nt.state)),t.state, nt.state))
             print("Reward: (Equal? {}) \n{}, {}".format(t.reward == nt.reward,t.reward, nt.reward))
             print("Next State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.next_state, nt.next_state)), t.next_state, nt.next_state))
             print("Priorities: (Equal? {}) \n{}, {}".format(pr==npr,pr, npr))
+
+        print(not (np.all(np.equal(t.state, nt.state)) and t.reward == nt.reward and np.all(np.equal(t.next_state, nt.next_state)) and pr==npr))
