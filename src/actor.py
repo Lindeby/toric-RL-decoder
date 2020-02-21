@@ -147,8 +147,10 @@ def actor(rank, world_size, args):
 
         local_buffer[local_memory_index] = transition
         q_values_buffer[local_memory_index] = q_values
+        local_memory_index += 1
 
-        if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
+
+        if (local_memory_index >= (args["size_local_memory_buffer"])): 
             # disregard lates transition since it has no next state to compute priority for
             priorities = computePriorities(local_buffer[0:-1], q_values_buffer[0:-1], args["discount_factor"])      
             to_send = [*zip(local_buffer, priorities)]
@@ -156,8 +158,6 @@ def actor(rank, world_size, args):
             # send buffer to learner
             transition_queue_to_memory.put(to_send)
             local_memory_index = 0
-        else:
-            local_memory_index += 1
 
         if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
             state = env.reset()
