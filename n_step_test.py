@@ -85,10 +85,6 @@ def actor(rank, world_size, args):
         local_memory_index += 1
 
         if (local_memory_index >= (args["size_local_memory_buffer"])): 
-            print("local buff:\n {}".format(local_buffer))
-            print("q_values_buffer:\n {}".format(q_values_buffer))
-            print("q_values_ns_buffer:\n {}".format(np.roll(q_values_buffer, -1)))
-            print('#############################')
             priorities = computePriorities(local_buffer, q_values_buffer, args["discount_factor"])      
             to_send = [*zip(local_buffer, priorities)]
 
@@ -278,7 +274,7 @@ if __name__ == "__main__":
         , "epsilon": 0
         , "discount_factor" : 0.95
         , "max_actions_per_episode" : 75
-        , "size_local_memory_buffer": 2
+        , "size_local_memory_buffer": 100
         , "n_step": 1
     }
 
