@@ -72,8 +72,8 @@ def actor(rank, world_size, args):
 
     # set network to eval mode
     NN = args["model"]
-    NN_config = args["model_config"]
     if NN == NN_11 or NN == NN_17:
+        NN_config = args["model_config"]
         model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
     else:
         model = NN()
@@ -369,8 +369,8 @@ def actor_n_step(rank, world_size, args):
 
     # set network to eval mode
     NN = args["model"]
-    NN_config = args["model_config"]
     if NN == NN_11 or NN == NN_17:
+        NN_config = args["model_config"]
         model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
     else:
         model = NN()
