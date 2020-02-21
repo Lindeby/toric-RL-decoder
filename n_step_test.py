@@ -293,5 +293,5 @@ if __name__ == "__main__":
             print("Reward: (Equal? {}) \n{}, {}".format(t.reward == nt.reward,t.reward, nt.reward))
             print("Next State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.next_state, nt.next_state)), t.next_state, nt.next_state))
             print("Priorities: (Equal? {}) \n{}, {}".format(pr==npr,pr, npr))
-
-        print(not (np.all(np.equal(t.state, nt.state)) and t.reward == nt.reward and np.all(np.equal(t.next_state, nt.next_state)) and pr==npr))
+            exit()
+        # print(not (np.all(np.equal(t.state, nt.state)) and t.reward == nt.reward and np.all(np.equal(t.next_state, nt.next_state)) and pr==npr))
