@@ -446,7 +446,7 @@ def actor_n_step(rank, world_size, args):
         n_step_state[    n_step_idx ] = previous_state
         n_step_reward[   n_step_idx ] = 0
         n_step_action[   n_step_idx ] = action
-        n_step_n_state[  n_step_idx ] = state
+        #n_step_n_state[  n_step_idx ] = state # wrong? Not used for now so might not matter
         n_step_Qs_state[ n_step_idx ] = q_values
         for n in range(1,n_step+1, 1):
             n_step_reward[n_step_idx - n] += (discount_factor**(n-1))*reward
@@ -455,9 +455,9 @@ def actor_n_step(rank, world_size, args):
         if n_step_idx >= n_step-1:
             n_step_full = True
 
-        if (local_memory_index >= (args["size_local_memory_buffer"]-1)): 
+        if (local_memory_index >= (args["size_local_memory_buffer"])): 
             # disregard lates transition since it has no next state to compute priority for
-            priorities = computePriorities_n_step(local_buffer_trans[:local_memory_index - n_step], local_buffer_qs[:local_memory_index-n_step], local_buffer_qs_ns[:local_memory_index-n_step], discount_factor**n_step)      
+            priorities = computePriorities_n_step(local_buffer_trans[:-n_step], local_buffer_qs[:-n_step], local_buffer_qs_ns[:-n_step], discount_factor**n_step)      
             to_send = [*zip(local_buffer_trans, priorities)]
 
             # send buffer to learner
