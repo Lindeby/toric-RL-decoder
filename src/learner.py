@@ -236,6 +236,7 @@ def learner(rank, world_size, args):
 
         # compute loss and update replay memory
         y = batch_reward + ((~batch_terminal).type(torch.float) * discount_factor * target_output)
+        y = y.clamp(-100, 100)
         loss = criterion(y, policy_output)
         
         # Compute priorities
