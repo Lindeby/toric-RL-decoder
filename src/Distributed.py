@@ -40,7 +40,6 @@ class Distributed():
         
         self.update_tb = update_tb
         self.tb_log_dir = "runs/{}".format(datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))
-        # self.grid_shift = int(env.system_size/2)
 
 
 
