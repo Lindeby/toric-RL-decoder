@@ -65,6 +65,9 @@ class Distributed():
         if 1 > n_step:
             raise ValueError("Please have n_step >= 1")
 
+        if 1 >= size_local_memory_buffer:
+            raise ValueError("Please let size_local_memory_buffer > 1")
+
         world_size = no_actors +2 #(+ Learner proces and Memmory process)
         actor_processes = []
 
