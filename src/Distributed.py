@@ -7,7 +7,7 @@ import torch.distributed as dist
 from torch.multiprocessing import Process, Pipe, Queue, set_start_method
 # other files
 from .learner import learner
-from .actor import actor, actor_n_step
+from .actor import actor
 from .buffer import experienceReplayBuffer
 
 
@@ -134,7 +134,7 @@ class Distributed():
             "transition_queue_from_memory"      :transition_queue_from_memory,
             "update_priorities_queue_to_memory" :update_priorities_queue_to_memory,
             "con_learner"                       :con_memory_learner,
-            "replay_size_before_sampling"       :batch_size if not None else min(batch_size, int(self.replay_memory*0.25)),
+            "replay_size_before_sampling"       :replay_size_before_sample if not (replay_size_before_sample is None) else min(batch_size, int(self.replay_memory*0.25)),
             "tb_log_dir"                        :self.tb_log_dir,
             "update_tb"                         :self.update_tb
             }
@@ -174,7 +174,7 @@ class Distributed():
             actor_process = Process(target=self._init_process, 
                                     args=(rank+2, 
                                           world_size, 
-                                          actor, 
+                                          actor,
                                           actor_args))
 
             actor_process.start()
