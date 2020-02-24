@@ -192,10 +192,10 @@ def learner(rank, world_size, args):
         y = batch_reward + ((~batch_terminal).type(torch.float) * discount_factor * target_output)
         y = y.clamp(-100, 100)
         loss = criterion(y, policy_output)
+        loss = weights * loss
         
         # Compute priorities
-        priorities = weights * loss
-        priorities = np.absolute(priorities.cpu().detach().numpy())
+        priorities = np.absolute(loss.cpu().detach().numpy())
         
         optimizer.zero_grad()
         loss = loss.mean()
