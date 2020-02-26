@@ -80,6 +80,7 @@ def generatePerspective(grid_shift, toric_size, state):
                 new_state = rotate_state(new_state) # rotate perspective clock wise
                 temp = Perspective(new_state, (1,i,j))
                 perspectives.append(temp)
+
     
     return perspectives
 
@@ -119,14 +120,12 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
         index = (index + shift) % toric_size 
         return index
     perspectives = []
-    vertex_matrix = state[0,:,:]
-    plaquette_matrix = state[1,:,:]
+    vm = state[0,:,:]
+    pm = state[1,:,:]
     # qubit matrix 0
-    vme0 = np.where(   vertex_matrix == 1, 1, 0)
-    pme0 = np.where(plaquette_matrix == 1, 1, 0)
-    vme1 = np.where(np.roll(  vertex_matrix, -1, axis=0), 1, 0)
-    pme1 = np.where(np.roll(plaquette_matrix, 1, axis=0), 1, 0)
-    err  = np.logical_or.reduce(np.array([vme0, vme1, pme0, pme1]))
+    vme = np.where(np.roll(vm, -1, axis=0), 1, 0)
+    pme = np.where(np.roll(pm,  1, axis=1), 1, 0)
+    err  = np.logical_or.reduce(np.array([vm, vme, pm, pme]))
     args = np.argwhere(err == 1)
     for (i,j) in args:
         new_state = np.roll(state, grid_shift-i, axis=1)
@@ -134,11 +133,9 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
         perspectives.append(Perspective(new_state, (0,i,j)))
 
     # qubit matrix 1
-    vme0 = np.where(   vertex_matrix == 1, 1, 0)
-    pme0 = np.where(plaquette_matrix == 1, 1, 0)
-    vme1 = np.where(np.roll(  vertex_matrix, -1, axis=1), 1, 0)
-    pme1 = np.where(np.roll(plaquette_matrix, 1, axis=1), 1, 0)
-    err  = np.logical_or.reduce(np.array([vme0, vme1, pme0, pme1]))
+    vme = np.where(np.roll(vm, -1, axis=1), 1, 0)
+    pme = np.where(np.roll(pm,  1, axis=0), 1, 0)
+    err  = np.logical_or.reduce(np.array([vm, vme, pm, pme]))
     args = np.argwhere(err == 1)
     for (i,j) in args:
         new_state = np.roll(state, grid_shift-i, axis=1)
