@@ -1,7 +1,7 @@
 
 import random, torch
 import numpy as np
-from src.util import generatePerspective, rotate_state, shift_state, Perspective, Transition, Action
+from src.util import generatePerspectiveOptimized, rotate_state, shift_state, Perspective, Transition, Action
 from torch import from_numpy
 
 
@@ -26,44 +26,60 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     # set network in evluation mode 
     model.eval()
 
-    # generate perspectives 
-    perspectives = generatePerspective(grid_shift, toric_size, state)
-    number_of_perspectives = len(perspectives)
+    # generate perspectives
+    perspectives, positions = generatePerspectiveParallel(grid_shift, toric_size, state)
 
-    # preprocess batch of perspectives and actions
-    perspectives = Perspective(*zip(*perspectives))
-    batch_perspectives = np.array(perspectives.perspective)
-    batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
-    batch_perspectives = batch_perspectives.to(device)
-    batch_position_actions = perspectives.position
-   
+    splice_idx = [len(p) for p in perspectives]
+    perspectives = np.concatenate(perspectives)
+    perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
+
     # Policy
     policy_net_output = None
     q_values_table = None
     with torch.no_grad():
-        policy_net_output = model(batch_perspectives)
+        policy_net_output = model(perspectives)
         q_values_table = np.array(policy_net_output.cpu())
 
     #choose action using epsilon greedy approach
-    rand = random.random()
-    if(1 - epsilon > rand):
-        # select greedy action
-        row, col = np.unravel_index(np.argmax(q_values_table, axis=None), q_values_table.shape) 
-        p = row
-        a = col + 1
+    rand            = np.random.random(len(state))
+    greedy          = (1 - epsilon) > rand
+    q_values        = np.split(q_values_table, splice_idx[:-1])
 
-    # select random action
-    else:
-        p = random.randint(0, number_of_perspectives-1)
-        a = random.randint(0, number_of_actions-1) +1
-
-    action = [  batch_position_actions[p][0],
-                batch_position_actions[p][1],
-                batch_position_actions[p][2],
-                a]
-    q_values = q_values_table[p]
-    return action, q_values
+    actions, q_values = selectActionParallel(q_values, positions, greedy)
+    return actions, q_values
     
+
+def selectActionParallel(q_values, positions, greedy):
+    actions = np.empty((len(q_values), 4))
+    q_v     = np.empty((len(q_values), 3))
+
+    for state in range(len(q_values)):
+        if greedy[state]:
+            p, a = np.unravel_index(np.argmax(q_values[state], axis=None), q_values[state].shape)
+        else:
+            p = np.randint(0, len(q_values[state]))
+            a = np.randint(0, 3)
+
+        q_v[state,:]  = q_values[state][p]
+        actions[state,:] = [ positions[state][p][0],
+                             positions[state][p][1],
+                             positions[state][p][2],
+                             a +1]
+
+    return actions, q_v
+
+
+
+def generatePerspectiveParallel(grid_shift, toric_size, states):
+    per_result = []
+    pos_result = []
+    for i in range(len(states)):
+        per, pos = generatePerspectiveOptimized(grid_shift, toric_size, states[i])
+        per_result.append(per)
+        pos_result.append(pos)
+
+    return np.array(per_result), np.array(pos_result)
+
 
 def generateTransition( action, 
                         reward, 
