@@ -10,7 +10,6 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util import Action, Perspective, Transition, generatePerspective, rotate_state, shift_state
 from src.util_actor import updateRewards, selectAction, computePriorities, generateTransition
 
 # Quality of life
