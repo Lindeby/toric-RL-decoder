@@ -3,7 +3,6 @@ import torch
 from src.nn.torch.ResNet import ResNet18
 from src.Actor_mpi import Actor
 from src.Learner_mpi import Learner
-from src.ReplayMemory_mpi import ReplayMemory
 
 # Setup
 # Learner specific
@@ -47,40 +46,21 @@ world_size = base_comm.Get_size()
 
 # Every process reports to root if the have a gpu resorse or not. Root then
 # decides which process is Learner, Memory Replay and Actors
-base_comm_setup = None
+learner_rank = None
 cuda = torch.cuda.is_available()
 cuda_available = base_comm.gather(cuda, root=0)
 
 if base_rank == 0:
-
-    learner = None
-    memory = None
     for i in range(world_size):
         if cuda_available[i]:
-            learner = i
-
-    if learner < world_size-1:
-        memory = learner +1
-    else:
-        memory = learner -1
+            learner_rank = i
     
-    base_comm_setup = {
-                    "learner":learner,
-                    "memory":memory
-                 }
 
-base_comm_setup = base_comm.bcast(base_comm_setup, root=0)
-     
-# Create new comm group for actor/learner comunication 
-exclude = []
-exclude.append(base_comm_setup["memory"])
-actor_learner_group = base_comm.group.Excl(exclude)
-comm_actor_learner = base_comm.Create_group(actor_learner_group)
+learner_rank = base_comm.bcast(learner, root=0)
 
 # Learner
-if base_rank == base_comm_setup["learner"]:
+if base_rank == learner_rank:
 
-    
     """
         Learner Process
     """
@@ -98,14 +78,8 @@ if base_rank == base_comm_setup["learner"]:
         "env"                           :env,
         "env_config"                    :env_config,
         "mpi_base_comm"                 :base_comm,
-        "mpi_comm_actor_learner"        :comm_actor_learner,
-        "mpi_base_comm_setup"           :base_comm_setup
+        "mpi_learner_rank"              :learner_rank
     }
-
-    Learner(learner_args)
-# Replay Memory
-elif base_rank == base_comm_setup["memory"]:
-    
     """
         Memory Process
     """
@@ -115,11 +89,9 @@ elif base_rank == base_comm_setup["memory"]:
         "beta"                              :replay_memory_beta,
         "batch_size"                        :batch_size,
         "replay_size_before_sampling"       :replay_memory_size_before_sampeling if not (replay_memory_size_before_sampeling is None) else min(batch_size, int(replay_memory_size*0.1)),
-        "mpi_base_comm"                     :base_comm,
-        "mpi_base_comm_setup"               :base_comm_setup
     }
 
-    ReplayMemory(mem_args)
+    Learner(learner_args, mem_args)
           
 # Actor
 else:
@@ -139,8 +111,7 @@ else:
         "discount_factor"               :transition_priorities_discount_factor,
         "n_step"                        :actor_n_step,
         "mpi_base_comm"                 :base_comm,
-        "mpi_comm_actor_learner"        :comm_actor_learner,
-        "mpi_base_comm_setup"           :base_comm_setup
+        "mpi_learner_rank"              :learner_rank
     }
 
     Actor(actor_args)
