@@ -1,7 +1,7 @@
 
 import random, torch
 import numpy as np
-from src.util import generatePerspective, rotate_state, shift_state, Perspective, Transition, Action
+from src.util import generatePerspectiveOptimized, rotate_state, shift_state, Perspective, Transition, Action
 from torch import from_numpy
 
 
@@ -27,7 +27,7 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     model.eval()
 
     # generate perspectives 
-    perspectives = generatePerspective(grid_shift, toric_size, state)
+    perspectives = generatePerspectiveOptimized(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
 
     # preprocess batch of perspectives and actions
