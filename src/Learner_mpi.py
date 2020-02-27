@@ -1,27 +1,4 @@
 
-#
-#    """
-#        Learner Process
-#    """
-#    learner_args = {
-#        "train_steps"                   :learner_training_steps,
-#        "batch_size"                    :batch_size,
-#        "learning_rate"                 :learner_learning_rate,
-#        "policy_update"                 :learner_policy_update,
-#        "discount_factor"               :transition_priorities_discount_factor,
-#        "optimizer"                     :learner_optimizer,
-#        "model"                         :model,
-#        "model_config"                  :model_config,
-#        "device"                        :learner_device,
-#        "eval_freq"                     :learner_eval_freq,
-#        "env"                           :env,
-#        "env_config"                    :env_config,
-#        "mpi_base_comm"                 :base_comm,
-#        "mpi_comm_actor_learner"        :comm_actor_learner,
-#        "mpi_base_comm_setup"           :base_comm_setup
-#    }
-
-
 # torch
 import torch
 import torch.nn as nn
@@ -78,11 +55,8 @@ def learner(args, memory_args):
     # copy policy params to target
     params = parameters_to_vector(policy_net.parameters()) 
     vector_to_parameters(params, target_net.parameters())
-
-    #Brodcast weights
     msg = ("weights", params.detach())
-    base_comm.bcast(msg, root=learner_rank) 
-     
+    base_comm.bcast(msg, root=learner_rank)
     
     # define criterion and optimizer
     optimizer = None
@@ -95,19 +69,30 @@ def learner(args, memory_args):
     # init counter
     push_new_weights = 0
 
-    # Wait untill replay memory has enough transitions
-    #TODO
-    
-     
     # Start training
     for t in range(train_steps):
         
-        # Gather transitions from actors
+        # Synchronisation 
+        # - Gather transitions from actors
+        # - Update policy network
+        # - Send new weights to actors
         # TODO: fix format of what is sent from actor
         if t % gather_new_weights == 0:
-           actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
-           for i in range(len(actor_transitions)):
-                replay_memory.save(actor_transitions[i].transition, actor_transitions[i])  
+            
+            params = parameters_to_vector(policy_net.parameters())
+            # update policy network
+            vector_to_parameters(params, target_net.parameters())
+            target_net.to(device) # dont know if this is needed
+            # broadcast weights
+            msg = ("weights", params.detach())
+            base_comm.bcast(msg, root=learner_rank)
+            
+            # gather transitions from actors
+            actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
+            
+            # save transitions in replay memory
+            for i in range(len(actor_transitions)):
+                 replay_memory.save(actor_transitions[i].transition, actor_transitions[i])  
         
         print("learner: traning step: ",t+1," / ",train_steps)
         
@@ -145,25 +130,10 @@ def learner(args, memory_args):
         loss.backward()
         optimizer.step()
 
-        # update priorities in replay buffer
-        #TODO
-        update_priorities_queue_to_memory.put([*zip(priorities, indices)])
-
-        # update actor weights
-        #TODO
-        push_new_weights += 1
-        if push_new_weights >= args["policy_update"]:
-            params = parameters_to_vector(policy_net.parameters())
-            # update policy network
-            vector_to_parameters(params, target_net.parameters())
-            target_net.to(device) # dont know if this is needed
-            msg = ("weights", params.detach())
-            # send weights to actors
-            for actor in range(world_size-2):
-                con_actors[actor].send(msg)
-            push_new_weights = 0
-
-
-
+        # update priorities in replay_memory
+        replay_memory.priority_update(indices, priorities)
+    
     # training done
+    msg = ("terminate", None)
+    base_comm.bcast(msg, root=learner_rank)
     torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
