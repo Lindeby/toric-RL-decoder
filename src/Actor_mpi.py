@@ -3,7 +3,7 @@ import torch
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 
-import gym
+import gym, gym_ToricCode
 # python lib
 import numpy as np 
 import random
@@ -46,6 +46,8 @@ def actor(args):
     model.eval()
     
     # env and env params
+    print(args["env"])
+    print(args["env_config"])
     env = gym.make(args["env"], config=args["env_config"])
 
     no_actions = int(env.action_space.high[-1])
@@ -54,14 +56,17 @@ def actor(args):
     # Get initial network params
     base_comm = args["mpi_base_comm"]
     learner_rank = args["mpi_learner_rank"]
+    msg = None
     msg = base_comm.bcast(msg, root=learner_rank)
      
     msg, weights = msg
     if msg != "weights":
          weights = None
+    else:
+        print("actor: received initial weightsweights")
 
     # load weights
-    vector_to_parameters(weights, model.parameters())
+    vector_to_parameters(weights.to(device), model.parameters())
 
     # init counters
     steps_counter = 0
@@ -73,7 +78,9 @@ def actor(args):
     steps_per_episode = 0
    
     # main loop over training steps
+    print("actor starting loop")
     while True:
+        
 
         steps_per_episode += 1    
         # select action using epsilon greedy policy
@@ -106,26 +113,27 @@ def actor(args):
             buffer_idx += 1
 
         n_step_idx = (n_step_idx+1) % n_step
-
+        
+        print("actor: buffer_idx: ",buffer_idx)
         if buffer_idx >= size_local_memory_buffer:
-            
+            print("actor: local buffer full") 
             # receive new weights
             msg = base_comm.bcast(msg, root=learner_rank)
             msg, weights = msg
             if msg == "weights":
-                vector_to_parameters(weights, model.parameters())
+                vector_to_parameters(weights.to(device), model.parameters())
             elif msg == "terminate":
                 break; 
-
+            print("actor: done receiving new weights")
             # disregard latest transition ssince it has no next state to compute priority for
             priorities = computePriorities( local_buffer_T[:-n_step],
                                             local_buffer_Q[:-n_step],
                                             np.roll(local_buffer_Q, -n_step)[:-n_step],
                                             discount_factor**n_step)      
             to_send = [*zip(local_buffer_T[:-n_step], priorities)]
-            
             # send buffer to learner
             base_comm.gather(to_send, root=learner_rank)
+            print("actor: done sending transitions")
             buffer_idx = 0
             
 

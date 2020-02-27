@@ -14,9 +14,11 @@ from src.util_learner import predictMaxOptimized, dataToBatch
 from src.evaluation import evaluate
 from src.ReplayMemory import PrioritizedReplayMemory
 
+from src.nn.torch.NN import NN_11, NN_17
+
 def learner(args, memory_args):
     
-    training_steps = args["train_steps"]
+    train_steps = args["train_steps"]
     batch_size = args["batch_size"]
     learning_rate = args["learning_rate"]
     policy_update = args["policy_update"]
@@ -28,6 +30,9 @@ def learner(args, memory_args):
     env_config = args["env_config"]
     system_size = env_config["size"]
     grid_shift = int(env_config["size"]/2)
+    synchronize = args["synchronize"]
+
+    world_size = base_comm.Get_size()
 
 
     #Memory
@@ -57,6 +62,7 @@ def learner(args, memory_args):
     vector_to_parameters(params, target_net.parameters())
     msg = ("weights", params.detach())
     base_comm.bcast(msg, root=learner_rank)
+    print("Learner: sent initial weights")
     
     # define criterion and optimizer
     optimizer = None
@@ -77,8 +83,8 @@ def learner(args, memory_args):
         # - Update policy network
         # - Send new weights to actors
         # TODO: fix format of what is sent from actor
-        if t % gather_new_weights == 0:
-            
+        if t % synchronize == 0:
+            print("learner: synchronize") 
             params = parameters_to_vector(policy_net.parameters())
             # update policy network
             vector_to_parameters(params, target_net.parameters())
@@ -86,18 +92,23 @@ def learner(args, memory_args):
             # broadcast weights
             msg = ("weights", params.detach())
             base_comm.bcast(msg, root=learner_rank)
-            
+            print("learner: sent new weights")
             # gather transitions from actors
+            actor_transitions = []
             actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
-            
+            print("learner gatherd transitions")
             # save transitions in replay memory
-            for i in range(len(actor_transitions)):
-                 replay_memory.save(actor_transitions[i].transition, actor_transitions[i])  
+            for a in range(1, world_size):
+                a_transitions = actor_transitions[a]
+                
+                for i in range(len(actor_transitions)):
+                    replay_memory.save(a_transitions[i][0], a_transitions[i][1])  
         
         print("learner: traning step: ",t+1," / ",train_steps)
         
-        transitions, wights, indices = replay_memory.sample(batch_size, memory_beta)
+        transitions, weights, indices = replay_memory.sample(batch_size, memory_beta)
         data = (transitions, weights, indices)
+        print(data)
 
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
