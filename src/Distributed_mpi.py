@@ -3,38 +3,46 @@ import torch
 from src.nn.torch.ResNet import ResNet18
 from src.Actor_mpi import actor
 from src.Learner_mpi import learner
+import numpy as np
 
 def start_distributed_mpi():
 
     # Setup
+
+    # Mpi communication   
+    base_comm = MPI.COMM_WORLD
+    base_rank = base_comm.Get_rank()
+    world_size = base_comm.Get_size()
+
     # Learner specific
-    learner_training_steps = 2
+    learner_training_steps = 10000
     learner_learning_rate = 0.00025
     learner_policy_update = 100
     learner_optimizer = 'Adam'
     learner_device = 'cuda'
     learner_eval_freq = 100
-    learner_synchronize = 1
+    learner_synchronize = 50
+    learner_job_max_time = 3480 # 58 minutes
     
     # Actor specific
-    actor_max_actions_per_episode = 5 
-    actor_size_local_memory_buffer = 4
+    actor_max_actions_per_episode = 25 
+    actor_size_local_memory_buffer = 15
     actor_beta = 1 
     actor_device = 'cpu'
     actor_n_step = 1
-    epsilon = [0.5]
+    epsilon = np.linspace(0.3, 0.9, world_size - 1) 
     
     # Replay Memory specific
     replay_memory_size = 1000000 
     replay_memory_alpha = 0.6
     replay_memory_beta = 0.4
-    replay_memory_size_before_sampeling = 1000
+    replay_memory_size_before_sampeling = 5000
     
     # Shared
-    batch_size = 4
+    batch_size = 32
     transition_priorities_discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size": 9,
+    env_config = {  "size": 3,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
@@ -44,9 +52,6 @@ def start_distributed_mpi():
                     }
     
     
-    base_comm = MPI.COMM_WORLD
-    base_rank = base_comm.Get_rank()
-    world_size = base_comm.Get_size()
     
     # Every process reports to root if the have a gpu resorse or not. Root then
     # decides which process is Learner, Memory Replay and Actors
@@ -82,7 +87,8 @@ def start_distributed_mpi():
             "env_config"                    :env_config,
             "synchronize"                   :learner_synchronize,
             "mpi_base_comm"                 :base_comm,
-            "mpi_learner_rank"              :learner_rank
+            "mpi_learner_rank"              :learner_rank,
+            "job_max_time"                  :learner_job_max_time
         }
         """
             Memory Process

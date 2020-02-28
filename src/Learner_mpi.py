@@ -16,8 +16,10 @@ from src.ReplayMemory import PrioritizedReplayMemory
 
 from src.nn.torch.NN import NN_11, NN_17
 
+import time
+
 def learner(args, memory_args):
-    
+    start_time = time.time() 
     train_steps = args["train_steps"]
     batch_size = args["batch_size"]
     learning_rate = args["learning_rate"]
@@ -62,7 +64,6 @@ def learner(args, memory_args):
     vector_to_parameters(params, target_net.parameters())
     msg = ("weights", params.detach())
     base_comm.bcast(msg, root=learner_rank)
-    print("Learner: sent initial weights")
     
     # define criterion and optimizer
     optimizer = None
@@ -75,16 +76,44 @@ def learner(args, memory_args):
     # init counter
     push_new_weights = 0
 
+
+    
+    while replay_memory.filled_size() < replay_size_before_sampling:
+
+        params = parameters_to_vector(policy_net.parameters())
+        # update policy network
+        vector_to_parameters(params, target_net.parameters())
+        target_net.to(device) # dont know if this is needed
+        # broadcast weights
+        msg = ("weights", params.detach())
+        base_comm.bcast(msg, root=learner_rank)
+        # gather transitions from actors
+        actor_transitions = []
+        actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
+        # save transitions in replay memory
+        for a in range(0, world_size):
+            if a == learner_rank:
+                continue
+            a_transitions = actor_transitions[a]
+            
+            for i in range(len(a_transitions)):
+                replay_memory.save(a_transitions[i][0], a_transitions[i][1])
+         
+    t = None
     # Start training
     for t in range(train_steps):
+        
+        # Time guard
+        if time.time() - start_time > args["job_max_time"]:
+            print("time exeded")
+            break
         
         # Synchronisation 
         # - Gather transitions from actors
         # - Update policy network
         # - Send new weights to actors
-        # TODO: fix format of what is sent from actor
         if t % synchronize == 0:
-            print("learner: synchronize") 
+
             params = parameters_to_vector(policy_net.parameters())
             # update policy network
             vector_to_parameters(params, target_net.parameters())
@@ -92,23 +121,22 @@ def learner(args, memory_args):
             # broadcast weights
             msg = ("weights", params.detach())
             base_comm.bcast(msg, root=learner_rank)
-            print("learner: sent new weights")
             # gather transitions from actors
             actor_transitions = []
             actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
-            print("learner gatherd transitions")
             # save transitions in replay memory
-            for a in range(1, world_size):
+            for a in range(0, world_size):
+                if a == learner_rank:
+                    continue
                 a_transitions = actor_transitions[a]
                 
-                for i in range(len(actor_transitions)):
-                    replay_memory.save(a_transitions[i][0], a_transitions[i][1])  
-        
-        print("learner: traning step: ",t+1," / ",train_steps)
+                for i in range(len(a_transitions)):
+                    replay_memory.save(a_transitions[i][0], a_transitions[i][1])
+
+        #print("learner: traning step: ",t+1," / ",train_steps)
         
         transitions, weights, indices = replay_memory.sample(batch_size, memory_beta)
         data = (transitions, weights, indices)
-        print(data)
 
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
@@ -147,4 +175,9 @@ def learner(args, memory_args):
     # training done
     msg = ("terminate", None)
     base_comm.bcast(msg, root=learner_rank)
-    torch.save(policy_net.state_dict(), "network/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+    torch.save(policy_net.state_dict(), "network/mpi/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+
+    stop_time = time.time()
+    elapsed_time = stop_time - start_time 
+    print("elapsed time: ",elapsed_time)
+    print("learning steps: ",t)
