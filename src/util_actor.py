@@ -30,7 +30,11 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     perspectives, positions = generatePerspectiveParallel(grid_shift, toric_size, state)
 
     splice_idx = [len(p) for p in perspectives]
-    perspectives = np.concatenate(perspectives)
+    splice_idx = np.cumsum(splice_idx)
+    try:
+        perspectives = np.concatenate(perspectives)
+    except:
+        dum = 0
     perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
 
     # Policy
@@ -59,8 +63,8 @@ def selectActionParallel(q_values, positions, greedy):
             # This can be done with np.where() instead
             p, a = np.unravel_index(np.argmax(q_values[state], axis=None), q_values[state].shape)
         else:
-            p = np.randint(0, len(q_values[state]))
-            a = np.randint(0, 3)
+            p = np.random.randint(0, len(q_values[state]))
+            a = np.random.randint(0, 3)
 
         q_v[state,:]  = q_values[state][p]
         actions[state,:] = [ positions[state][p][0],
@@ -194,23 +198,39 @@ def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, d
     return np.absolute(reward_batch + discount_factor*qv_max_ns - qv_st)
 
 
-def computePrioritiesParallel(local_buffer_A, local_buffer_R, local_buffer_Q, local_buffer_Q_ns, discount_factor):
+
+def computePrioritiesParallel(A,R,Q, idx, n_step, discount):
     """ Computes the absolute temporal difference value.
 
     Parameters
     ==========
-    local_buffer:        (list) local transitions from the actor
-    q_values_buffer:     (list) q values for respective action
-    discount_factor:     (float) discount future rewards
+    A:        (np.array)
+    R:        (np.array)
+    Q:        (np.array)
+    idx:      (np.array)
+    discount: (float)       Index for the final value to grab. Needed
+                            due to A, R, Q can have different amount of
+                            transitions stored in each environment.
 
     Returns
     =======
-    (np.array) absolute TD error. (r + Qmax(st+1, a) - Q(st,a))
+    (np.array) absolute TD error.
     """
+    splices    = [0]
+    for i, _ in enumerate(idx):
+        splices.append(splices[i] + idx[i])
 
-    qv_max_ns = np.amax(local_buffer_Q_ns, axis=1)   # get Qmax
-    actions = local_buffer_A[:,:,-1] -1
-    qv_st     = local_buffer_Q[:,:,actions]
-    # qv_st           = np.array([local_buffer_Q[i][a.action-1] for i, a in enumerate(transitions.action)])
+    # container for result
+    priorities = np.empty(splices[-1])
+    # Start and stop insert range for each env
+    splices    = zip(splices, np.roll(splices,-1)[:-1])
 
-    return np.absolute(local_buffer_R + discount_factor*qv_max_ns - qv_st)
+    for env, (start, stop) in enumerate(splices):
+        Qns = np.roll(Q[env], -n_step, axis=0)[:idx[env]] # Roll Q back to get Q next state
+        qv_max_ns = np.amax(Qns, axis = 1)                # Find max Q value for next state
+        actions   = A[env, :idx[env], -1] -1              # Take the actions we performed
+        qv = Q[env, :idx[env]]
+        qv = qv[np.arange(len(actions)), actions]         # Take Q values for actions we performed
+        priorities[start:stop] = np.absolute(R[env, :idx[env]] + (discount**n_step)*qv_max_ns - qv)
+    
+    return priorities

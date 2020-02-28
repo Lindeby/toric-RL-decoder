@@ -4,9 +4,10 @@ import numpy as np
 class EnvSet():
     def __init__(self, env, no_envs):
 
-        self.states        = np.empty((no_envs, 2, env.system_size, env.system_size))
-        self.rewards       = np.empty( no_envs)
-        self.terminals     = np.zeros( no_envs, dtype=np.bool)
+        self.size       = env.system_size
+        self.states     = np.empty((no_envs, 2, self.size, self.size))
+        self.rewards    = np.empty( no_envs)
+        self.terminals  = np.zeros( no_envs, dtype=np.bool)
 
 
         self.envs = []
@@ -15,9 +16,10 @@ class EnvSet():
 
 
     def resetTerminalEnvs(self, idx):
-        for id in idx:
-            self.states[id] = self.envs[id].reset()
-        return self.states
+        states = np.empty((len(idx), 2, self.size, self.size))
+        for i, id in enumerate(idx):
+            states[i] = self.envs[id].reset()
+        return states
 
     def resetAll(self):
         for i, e in enumerate(self.envs):
@@ -30,8 +32,6 @@ class EnvSet():
             self.states[i]    = next_state
             self.rewards[i]   = reward
             self.terminals[i] = terminal
-            if terminal:
-                self._terminal_envs.append(i)
         return self.states, self.rewards, self.terminals, {}
 
 

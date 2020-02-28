@@ -9,7 +9,7 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util_actor import updateRewards, selectAction, computePrioritiesParallel, generateTransitionParallel
+from src.util_actor import updateRewards, selectAction, generateTransitionParallel, computePrioritiesParallel
 from src.EnvSet import EnvSet
 from src.util import action_type
 
@@ -71,11 +71,13 @@ def actor(rank, world_size, args):
     epsilon_dist - can be set, default linear fixed and for each actor
     
     '''
-    no_envs = 2
+    no_envs = args["no_envs"]
     device = args["device"]
     discount_factor = args["discount_factor"]
+    epsilon = np.array(args["epsilon"])
 
     # env and env params
+    # TODO: Investigate if envs have the same mem adress
     env = gym.make(args["env"], config=args["env_config"])
     envs = EnvSet(env, no_envs)
 
@@ -103,9 +105,9 @@ def actor(rank, world_size, args):
     # Local buffer of fixed size to store transitions before sending.
     n_step                      = args["n_step"]
     size_local_memory_buffer    = args["size_local_memory_buffer"] + n_step
-    local_buffer_T              = np.empty((no_envs, size_local_memory_buffer))    # Transtions
-    local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4)) # A values
-    local_buffer_Q              = np.empty((no_envs, size_local_memory_buffer, 3)) # Q values
+    local_buffer_T              = np.empty((no_envs, size_local_memory_buffer), dtype=transition_type)    # Transtions
+    local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4), dtype=np.int) # A values
+    local_buffer_Q              = np.empty((no_envs, size_local_memory_buffer), dtype=(np.float, 3)) # Q values
     local_buffer_R              = np.empty((no_envs, size_local_memory_buffer))    # R values
     buffer_idx                  = np.zeros( no_envs, dtype=np.int)
     n_step_S                    = np.empty((no_envs, n_step, 2, size, size))      # State
@@ -139,7 +141,7 @@ def actor(rank, world_size, args):
     # load weights
     # vector_to_parameters(weights, model.parameters())
 
-
+    count = 0
    
     # main loop over training steps
     while True:
@@ -157,10 +159,9 @@ def actor(rank, world_size, args):
         steps_per_episode += 1
 
         # select action using epsilon greedy policy
-        # TODO: Epsilons is not a list
         # TODO: Rewrite learner to handle generatePerspectives without Perspective tuple
         action, q_values = selectAction(number_of_actions=no_actions,
-                                                epsilon=args["epsilon"], 
+                                                epsilon=epsilon,
                                                 grid_shift=grid_shift,
                                                 toric_size = size,
                                                 state = state,
@@ -176,38 +177,39 @@ def actor(rank, world_size, args):
         n_step_R[  n_step_idx] = 0
         n_step_R = updateRewards(n_step_R, n_step_idx, reward, n_step, discount_factor)
 
-        n_step_full_idx = np.argwhere(n_step_full).flatten()
+        n_step_full_idx = np.argwhere(n_step_idx == (n_step-1)).flatten()
 
         if not (n_step_full_idx.size == 0):
-            transition = generateTransitionParallel(n_step_A[n_step_full_idx, n_step_idx-n_step],
-                                                    n_step_R[n_step_full_idx, n_step_idx-n_step], 
-                                                    n_step_S[n_step_full_idx, n_step_idx-n_step],
+            # a = n_step_A[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step]
+            transition = generateTransitionParallel(n_step_A[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step],
+                                                    n_step_R[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step], 
+                                                    n_step_S[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step],
                                                     next_state[n_step_full_idx], 
                                                     terminal_state[n_step_full_idx],
                                                     grid_shift,
                                                     transition_type
                                                     )
-            local_buffer_T[n_step_full_idx: buffer_idx[n_step_full_idx]] = transition
-            local_buffer_A[n_step_full_idx: buffer_idx[n_step_full_idx]] = n_step_A[n_step_full_idx, n_step_idx-n_step]
-            local_buffer_Q[n_step_full_idx: buffer_idx[n_step_full_idx]] = n_step_Q[n_step_full_idx, n_step_idx-n_step]
-            local_buffer_R[n_step_full_idx: buffer_idx[n_step_full_idx]] = n_step_R[n_step_full_idx, n_step_idx-n_step]
+            local_buffer_T[n_step_full_idx, buffer_idx[n_step_full_idx]] = transition
+            local_buffer_A[n_step_full_idx, buffer_idx[n_step_full_idx]] = n_step_A[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step]
+            local_buffer_Q[n_step_full_idx, buffer_idx[n_step_full_idx]] = n_step_Q[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step]
+            local_buffer_R[n_step_full_idx, buffer_idx[n_step_full_idx]] = n_step_R[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step]
             buffer_idx[n_step_full_idx] += 1
 
-        n_step_full = n_step_idx == (n_step-1)
         n_step_idx  = (n_step_idx+1) % n_step
 
         # If buffer full, send transitions
         if np.max(buffer_idx) >= size_local_memory_buffer:
-            
             # disregard latest transition since it has no next state to compute priority for
-            priorities = computePrioritiesParallel( local_buffer_A[:,buffer_idx-n_step],
-                                                    local_buffer_R[:,buffer_idx-n_step],
-                                                    local_buffer_Q[:,buffer_idx-n_step],
-                                                    np.roll(local_buffer_Q, -n_step, axis=1)[:,buffer_idx-n_step],
-                                                    discount_factor**n_step)
+            priorities = computePrioritiesParallel(local_buffer_A,
+                                                   local_buffer_R,
+                                                   local_buffer_Q,
+                                                   buffer_idx-n_step,
+                                                   n_step,
+                                                   discount_factor)
 
-            to_send = zip(local_buffer_T[:,buffer_idx-n_step].flatten(), priorities.flatten())
+            to_send = [*zip(local_buffer_T[:,buffer_idx-n_step].flatten(), priorities)]
 
+            exit()
             # to_send = [*zip(local_buffer_T[:-n_step], priorities)]
 
             # send buffer to learner
@@ -219,7 +221,7 @@ def actor(rank, world_size, args):
         if np.any(terminal_state) or np.any(too_many_steps):
             
             # Reset terminal envs
-            idx = np.logical_or(terminal_state, too_many_steps)
+            idx = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten()
             reset_states = envs.resetTerminalEnvs(idx)
 
             # Reset n_step buffers
@@ -230,6 +232,9 @@ def actor(rank, world_size, args):
             steps_per_episode[idx] = 0
         
         state = next_state
+
+        count += 1
+        print(count)
     
     # ready to terminate
     # while True:
@@ -253,11 +258,12 @@ if __name__ == "__main__":
         , "device": 'cuda' if torch.cuda.is_available() else 'cpu'
         , "env": 'toric-code-v0'
         , "env_config": env_config
-        , "epsilon": 0
+        , "epsilon": [0.3]
         , "discount_factor" : 0.95
-        , "max_actions_per_episode" : 75
-        , "size_local_memory_buffer": 100
-        , "n_step": 1
+        , "max_actions_per_episode" : 5
+        , "size_local_memory_buffer": 1000
+        , "n_step": 2
+        , "no_envs": 15
     }
 
     actor(0,0, args)
