@@ -20,3 +20,4 @@ runs/
 debug2.py
 plots/
 n_step_test.py
+test_gen_persp.py
