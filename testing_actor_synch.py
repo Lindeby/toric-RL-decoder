@@ -18,7 +18,6 @@ from src.nn.torch.NN import NN_11, NN_17
 from src.nn.torch.ResNet import ResNet18
 
             
-
 def actor(rank, world_size, args):
     """ An actor that performs actions in an environment.
 
@@ -64,13 +63,7 @@ def actor(rank, world_size, args):
     }
 
     """
-    
 
-    '''
-    no_envs       - int
-    epsilon_dist - can be set, default linear fixed and for each actor
-    
-    '''
     no_envs = args["no_envs"]
     device = args["device"]
     discount_factor = args["discount_factor"]
@@ -117,8 +110,6 @@ def actor(rank, world_size, args):
     n_step_idx                  = np.zeros( no_envs, dtype=np.int)  # Index
     n_step_full                 = np.zeros( no_envs, dtype=np.bool)
 
-
-
     # set network to eval mode
     NN = args["model"]
     if NN == NN_11 or NN == NN_17:
@@ -157,9 +148,7 @@ def actor(rank, world_size, args):
         #         break
 
         steps_per_episode += 1
-
         # select action using epsilon greedy policy
-        # TODO: Rewrite learner to handle generatePerspectives without Perspective tuple
         action, q_values = selectAction(number_of_actions=no_actions,
                                                 epsilon=epsilon,
                                                 grid_shift=grid_shift,
@@ -167,7 +156,6 @@ def actor(rank, world_size, args):
                                                 state = state,
                                                 model = model,
                                                 device = device)
-
 
         next_state, reward, terminal_state, _ = envs.step(action)
 
@@ -178,7 +166,6 @@ def actor(rank, world_size, args):
         n_step_R = updateRewards(n_step_R, n_step_idx, reward, n_step, discount_factor)
 
         n_step_full_idx = np.argwhere(n_step_idx == (n_step-1)).flatten()
-
         if not (n_step_full_idx.size == 0):
             # a = n_step_A[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step]
             transition = generateTransitionParallel(n_step_A[n_step_full_idx, n_step_idx[n_step_full_idx]-n_step],
@@ -216,7 +203,6 @@ def actor(rank, world_size, args):
             # transition_queue_to_memory.put(to_send)
             buffer_idx = 0
 
-        
         too_many_steps = steps_per_episode > args["max_actions_per_episode"]
         if np.any(terminal_state) or np.any(too_many_steps):
             
@@ -260,10 +246,10 @@ if __name__ == "__main__":
         , "env_config": env_config
         , "epsilon": [0.3]
         , "discount_factor" : 0.95
-        , "max_actions_per_episode" : 5
+        , "max_actions_per_episode" : 75
         , "size_local_memory_buffer": 1000
-        , "n_step": 2
-        , "no_envs": 15
+        , "n_step": 1
+        , "no_envs": 1
     }
 
     actor(0,0, args)

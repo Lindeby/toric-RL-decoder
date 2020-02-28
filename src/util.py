@@ -7,6 +7,7 @@ from torch import from_numpy
 from collections import namedtuple
 
 Action = namedtuple('Action', ['position', 'action'])
+action_type = np.dtype([('position', (np.int, 3)), ('op', np.int)])
 
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
 
@@ -81,7 +82,6 @@ def generatePerspective(grid_shift, toric_size, state):
                 temp = Perspective(new_state, (1,i,j))
                 perspectives.append(temp)
 
-    
     return perspectives
 
 def rotate_state(state):

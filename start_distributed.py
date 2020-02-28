@@ -31,7 +31,7 @@ if __name__ == "__main__":
         MIN_QBIT_ERRORS = 0
         P_ERROR = 0.1
 
-        NETWORK = ResNet18
+        NETWORK = NN_11#ResNet18
 
         env_config = {  "size": SYSTEM_SIZE,
                         "min_qubit_errors": MIN_QBIT_ERRORS,
@@ -62,13 +62,14 @@ if __name__ == "__main__":
                 epsilons = epsilons,
                 beta = 1,
                 n_step = 1,
-                batch_size = 32,
+                batch_size = 16,
                 policy_update = 100,
                 discount_factor = 0.95,
                 max_actions_per_episode = 75,
-                size_local_memory_buffer = 1000,
+                size_local_memory_buffer = 100,
                 eval_freq=100,
-                replay_size_before_sample = 1000
+                replay_size_before_sample = 100,
+                no_envs=1
                 )
 
 

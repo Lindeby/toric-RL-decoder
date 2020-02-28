@@ -66,13 +66,13 @@ class Distributed():
             raise ValueError("Please have n_step >= 1.")
         if 1 >= size_local_memory_buffer:
             raise ValueError("Please let size_local_memory_buffer > 1.")
-        if isinstance(epsilons, list):
+        if not isinstance(epsilons, list):
             raise ValueError("Please provide epsilons as a list.")
         if len(epsilons) != no_envs*no_actors:
             raise ValueError("Mismatch in epsilons and no_envs*no_actors. Please let len(epsilons) == no_envs*no_actors.")
 
 
-        world_size = no_actors +2 #(+ Learner proces and Memmory process)
+        world_size = no_actors +2 #(+ Learner proces and Memory process)
         actor_processes = []
 
         # Communication channels between processes

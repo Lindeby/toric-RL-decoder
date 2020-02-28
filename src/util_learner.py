@@ -1,7 +1,7 @@
 import torch
 from torch import from_numpy
 import numpy as np
-from src.util import generatePerspectiveOptmized, Action, Perspective
+from src.util import generatePerspectiveOptimized, Action, Perspective
 
 
 def dataToBatch(data, device):
@@ -68,7 +68,7 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     terminal_state_idx = []
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
-        perspectives, _ = generatePerspectiveOptmized(int(system_size/2), system_size, np.array(state.cpu()))
+        perspectives, _ = generatePerspectiveOptimized(int(system_size/2), system_size, np.array(state.cpu()))
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
