@@ -265,6 +265,17 @@ def actor_par(rank, world_size, args):
        
     # main loop over training steps
     while True:
+
+        if con_learner.poll():
+            msg, weights = con_learner.recv()
+            
+            if msg == "weights":
+                vector_to_parameters(weights, model.parameters())
+            
+            elif msg == "prep_terminate":
+                con_learner.send("ok")
+                break
+
         steps_per_episode += 1
 
         # select action using epsilon greedy policy
