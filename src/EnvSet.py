@@ -5,7 +5,8 @@ class EnvSet():
     def __init__(self, env, no_envs):
 
         self.size       = env.system_size
-        self.states     = np.empty((no_envs, 2, self.size, self.size))
+        self.no_envs    = no_envs
+        self.states     = np.empty((no_envs, 2, self.size, self.size), dtype=np.int)
         self.rewards    = np.empty( no_envs)
         self.terminals  = np.zeros( no_envs, dtype=np.bool)
 
@@ -27,12 +28,15 @@ class EnvSet():
         return self.states
 
     def step(self, actions):
+        states     = np.empty((self.no_envs, 2, self.size, self.size), dtype=np.int)
+        rewards    = np.empty( self.no_envs)
+        terminals  = np.zeros( self.no_envs, dtype=np.bool)
         for i, e in enumerate(self.envs):
             next_state, reward, terminal, _ = e.step(actions[i])
-            self.states[i]    = next_state
-            self.rewards[i]   = reward
-            self.terminals[i] = terminal
-        return self.states, self.rewards, self.terminals, {}
+            states[i]    = next_state
+            rewards[i]   = reward
+            terminals[i] = terminal
+        return states, rewards, terminals, {}
 
 
     def isAnyTerminal(self):

@@ -31,7 +31,7 @@ if __name__ == "__main__":
         MIN_QBIT_ERRORS = 0
         P_ERROR = 0.1
 
-        NETWORK = NN_11#ResNet18
+        NETWORK = ResNet18
 
         env_config = {  "size": SYSTEM_SIZE,
                         "min_qubit_errors": MIN_QBIT_ERRORS,
@@ -49,7 +49,7 @@ if __name__ == "__main__":
                          env_config = env_config,
                          device = device,
                          optimizer  = 'Adam',
-                         replay_size= 10000,
+                         replay_size= 1000,
                          alpha = 0.6,
                          beta = 0.4
                         )

@@ -7,7 +7,7 @@ import torch.distributed as dist
 from torch.multiprocessing import Process, Pipe, Queue, set_start_method
 # other files
 from .learner import learner
-from .actor import actor
+from .actor import actor, actor_par
 from .buffer import experienceReplayBuffer
 
 
@@ -182,7 +182,7 @@ class Distributed():
             actor_process = Process(target=self._init_process, 
                                     args=(rank+2, 
                                           world_size, 
-                                          actor,
+                                          actor_par,
                                           actor_args))
                 
             actor_process.start()
