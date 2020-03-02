@@ -1,11 +1,7 @@
 
 import random, torch
 import numpy as np
-<<<<<<< .merge_file_wQS7qS
 from src.util import generatePerspectiveOptimized, generatePerspective, rotate_state, shift_state, Perspective, Transition, Action
-=======
-from src.util import generatePerspectiveOptimized, rotate_state, shift_state, Perspective, Transition, Action
->>>>>>> .merge_file_TzGt0U
 from torch import from_numpy
 
 
