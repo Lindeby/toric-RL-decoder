@@ -68,16 +68,16 @@ def predictMaxOptimized(model, batch_state, grid_shift, system_size, device):
     terminal_state_idx = []
     for i, state in enumerate(batch_state):
         # concat all perspectives to one batch, keep track of indices between batches
-        # perspectives, _ = generatePerspectiveOptimized(int(system_size/2), system_size, np.array(state.cpu()))
-        perspectives = generatePerspective(int(system_size/2), system_size, np.array(state.cpu()))
+        perspectives, _ = generatePerspectiveOptimized(int(system_size/2), system_size, np.array(state.cpu()))
+        # perspectives = generatePerspective(int(system_size/2), system_size, np.array(state.cpu()))
 
         # no perspectives because terminal state
         if len(perspectives) == 0:
             terminal_state_idx.append(i)
             perspectives = np.zeros((1 , 2,system_size, system_size))
-        else:
-            perspectives = Perspective(*zip(*perspectives))
-            perspectives = perspectives.perspective
+        # else:
+        #     perspectives = Perspective(*zip(*perspectives))
+        #     perspectives = perspectives.perspective
 
         master_batch_perspectives.extend(perspectives)
 
