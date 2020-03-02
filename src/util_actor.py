@@ -26,7 +26,6 @@ def selectAction(number_of_actions, epsilon, grid_shift,
 
     # generate perspectives 
     perspectives = generatePerspective(grid_shift, toric_size, state)
-    # print(perspectives)
     number_of_perspectives = len(perspectives)
 
     # preprocess batch of perspectives and actions
@@ -43,7 +42,6 @@ def selectAction(number_of_actions, epsilon, grid_shift,
         policy_net_output = model(batch_perspectives)
         q_values_table = np.array(policy_net_output.cpu())
 
-    # print(q_values_table, "\n")
 
     #choose action using epsilon greedy approach
     rand = random.random()
@@ -63,10 +61,6 @@ def selectAction(number_of_actions, epsilon, grid_shift,
                 batch_position_actions[p][2],
                 a]
     q_values = q_values_table[p]
-    # print("REG")
-    # print(state)
-    # print(action)
-    # print(q_values)
     return action, q_values
 
 
@@ -94,13 +88,10 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
     # generate perspectives
     perspectives, positions = generatePerspectiveParallel(grid_shift, toric_size, state)
 
-
     splice_idx = [len(p) for p in perspectives]
     splice_idx = np.cumsum(splice_idx)
-    try:
-        perspectives = np.concatenate(perspectives)
-    except:
-        dum = 0
+
+    perspectives = np.concatenate(perspectives)
     perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
 
     # Policy
@@ -110,8 +101,6 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
         policy_net_output = model(perspectives)
         q_values_table = np.array(policy_net_output.cpu())
 
-    # print(q_values_table)
-
     #choose action using epsilon greedy approach
     rand            = np.random.random(len(state))
     greedy          = (1 - epsilon) > rand
@@ -119,29 +108,6 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
 
     actions, q_values = selectActionParallel_prime(q_values, positions, greedy)
     return actions, q_values
-    
-
-def selectActionParallel_prime(q_values, positions, greedy):
-    actions = np.empty((len(q_values), 4), dtype=np.int)
-    q_v     = np.empty((len(q_values), 3))
-
-    for state in range(len(q_values)):
-        if greedy[state]:
-            # unravel_index not supported by numba
-            # This can be done with np.where() instead
-            p, a = np.unravel_index(np.argmax(q_values[state], axis=None), q_values[state].shape)
-        else:
-            p = np.random.randint(0, len(q_values[state]))
-            a = np.random.randint(0, 3)
-
-        q_v[state,:]  = q_values[state][p]
-        actions[state,:] = [ positions[state][p][0],
-                             positions[state][p][1],
-                             positions[state][p][2],
-                             a +1]
-
-    return actions, q_v
-
 
 
 def generatePerspectiveParallel(grid_shift, toric_size, states):
@@ -153,6 +119,28 @@ def generatePerspectiveParallel(grid_shift, toric_size, states):
         pos_result.append(pos)
 
     return np.array(per_result), np.array(pos_result)
+
+
+def selectActionParallel_prime(q_values, positions, greedy):
+    actions = np.empty((len(q_values), 4), dtype=np.int)
+    q_v     = np.empty((len(q_values), 3))
+
+    for state in range(len(q_values)):
+        if greedy[state]:
+            p, a = np.where(q_values[state] == np.max(q_values[state]))
+            p = p[0]
+            a = a[0]
+        else:
+            p = np.random.randint(0, len(q_values[state]))
+            a = np.random.randint(0, 3)
+
+        q_v[state,:]  = q_values[state][p]
+        actions[state,:] = [ positions[state][p][0],
+                             positions[state][p][1],
+                             positions[state][p][2],
+                             a +1]
+
+    return actions, q_v
 
 
 def generateTransition( action, 
@@ -178,17 +166,10 @@ def generateTransition( action,
     (tuple) a tuple to be stored in the replay buffer.
     """
 
-    # print("REG")
-    # print(action)
-    # print(reward)
-    # print(previous_state,"\n")
-    # print(state,"\n")
-
     qubit_matrix = action[0]
     row = action[1]
     col = action[2]
     add_operator = action[3]
-    # print(qubit_matrix, row, col, add_operator)
     if qubit_matrix == 0:
         previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
         action = Action((0, grid_shift, grid_shift), add_operator)
@@ -198,7 +179,6 @@ def generateTransition( action,
         perspective = rotate_state(perspective)
         action = Action((1, grid_shift, grid_shift), add_operator)
     
-    # print(Transition(previous_perspective, action, reward, perspective, terminal_state))
     return Transition(previous_perspective, action, reward, perspective, terminal_state)
 
 def generateTransitionParallel( action, 
@@ -217,7 +197,7 @@ def generateTransitionParallel( action,
     reward:         (float)
     grid_shift:     (int)
     previous_state: (np.ndarry)
-    next_state:          (np.ndarray)
+    next_state:     (np.ndarray)
     terminal_state: (bool)
 
     Return
@@ -232,7 +212,6 @@ def generateTransitionParallel( action,
         row = action[i][1]
         col = action[i][2]
         op  = action[i][3]
-        # print(qm, row, col, op)
         if qm == 0:
             previous_perspective, perspective = shift_state(row, col, state[i], next_state[i], grid_shift)
             a = Action((0, grid_shift, grid_shift), op)
@@ -244,17 +223,6 @@ def generateTransitionParallel( action,
 
         result[i] = Transition(previous_perspective, a, reward[i], perspective, terminal_state[i])
     return result
-
-def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
-    for t in range(0, n_step):
-        reward_buffer[idx - t] += (discount_factor)**(t)*reward
-    return reward_buffer
-
-def updateRewardsParallel(reward_buffer, idx, reward, n_step, discount_factor):
-    for t in range(0, n_step):
-        reward_buffer[:, idx - t] += (discount_factor**t)*reward
-    return reward_buffer
-
 
 def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
     """ Computes the absolute temporal difference value.
@@ -300,18 +268,3 @@ def computePrioritiesParallel(A,R,Q,Qns,discount):
     row = np.arange(actions.shape[-1])
     Qv      = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
     return np.absolute(R + discount*Qns_max - Qv)
-
-def flatten(matrix, idx, typ):
-    splices = [0]
-    for i, _ in enumerate(idx):
-        splices.append(splices[i] + idx[i])
-
-    container = np.empty(splices[-1], dtype=typ)
-    splices    = [*zip(splices, np.roll(splices,-1)[:-1])]
-
-    for i in range(len(idx)):
-        start, stop = splices[i]
-        container[start:stop] = matrix[i][:idx[i]]
-    
-    return container
-

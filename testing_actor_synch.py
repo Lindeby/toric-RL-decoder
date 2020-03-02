@@ -284,12 +284,12 @@ if __name__ == "__main__":
         , "epsilon": [0,0,0,0,0]
         , "discount_factor" : 0.95
         , "max_actions_per_episode" : 75
-        , "size_local_memory_buffer": 2
+        , "size_local_memory_buffer": 5
         , "n_step": 1
         , "no_envs": 5
     }
 
-    res    = actor(0,0, args)
+    # res    = actor(0,0, args)
     respar = actor_par(0,0, args)
     # print(respar)
     # print("")
