@@ -7,7 +7,7 @@ import torch.distributed as dist
 from torch.multiprocessing import Process, Pipe, Queue, set_start_method
 # other files
 from .learner import learner
-from .actor import actor, actor_par
+from .actor import actor
 from .buffer import experienceReplayBuffer
 
 
