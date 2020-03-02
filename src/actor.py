@@ -18,7 +18,7 @@ from src.EnvSet import EnvSet
 from src.nn.torch.NN import NN_11, NN_17
             
 
-def actor_par(rank, world_size, args):
+def actor(rank, world_size, args):
     """ An actor that performs actions in an environment.
 
     Params

@@ -182,7 +182,7 @@ class Distributed():
             actor_process = Process(target=self._init_process, 
                                     args=(rank+2, 
                                           world_size, 
-                                          actor_par,
+                                          actor,
                                           actor_args))
                 
             actor_process.start()
