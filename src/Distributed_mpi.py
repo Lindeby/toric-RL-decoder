@@ -36,7 +36,7 @@ def start_distributed_mpi():
     replay_memory_size = 1000000 
     replay_memory_alpha = 0.6
     replay_memory_beta = 0.4
-    replay_memory_size_before_sampeling = 5000
+    replay_memory_size_before_sampeling = 100
     
     # Shared
     batch_size = 32

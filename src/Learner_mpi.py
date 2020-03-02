@@ -16,6 +16,8 @@ from src.ReplayMemory import PrioritizedReplayMemory
 
 from src.nn.torch.NN import NN_11, NN_17
 
+from copy import deepcopy
+
 import time
 
 def learner(args, memory_args):
@@ -62,7 +64,8 @@ def learner(args, memory_args):
     # copy policy params to target
     params = parameters_to_vector(policy_net.parameters()) 
     vector_to_parameters(params, target_net.parameters())
-    msg = ("weights", params.detach())
+    w = params.detach().to('cpu')
+    msg = ("weights", w)
     base_comm.bcast(msg, root=learner_rank)
     
     # define criterion and optimizer
@@ -85,7 +88,8 @@ def learner(args, memory_args):
         vector_to_parameters(params, target_net.parameters())
         target_net.to(device) # dont know if this is needed
         # broadcast weights
-        msg = ("weights", params.detach())
+        w = params.detach().to('cpu')
+        msg = ("weights", w)
         base_comm.bcast(msg, root=learner_rank)
         # gather transitions from actors
         actor_transitions = []
@@ -119,7 +123,8 @@ def learner(args, memory_args):
             vector_to_parameters(params, target_net.parameters())
             target_net.to(device) # dont know if this is needed
             # broadcast weights
-            msg = ("weights", params.detach())
+            w = params.detach().to('cpu')
+            msg = ("weights", w)
             base_comm.bcast(msg, root=learner_rank)
             # gather transitions from actors
             actor_transitions = []
