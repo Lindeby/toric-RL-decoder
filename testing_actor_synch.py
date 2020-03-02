@@ -9,7 +9,7 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util_actor import updateRewards, selectAction, selectActionParallel, generateTransitionParallel, computePrioritiesParallel, flatten
+from src.util_actor import selectAction, selectActionParallel, generateTransitionParallel, computePrioritiesParallel
 from src.EnvSet import EnvSet
 from src.util import action_type
 
@@ -29,7 +29,7 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util_actor import updateRewards, updateRewardsParallel, selectAction, computePriorities, generateTransition
+from src.util_actor import selectAction, computePriorities, generateTransition
 
 # Quality of life
 from src.nn.torch.NN import NN_11, NN_17
@@ -236,6 +236,7 @@ def actor_par(rank, world_size, args):
 
         # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:
+            print(local_buffer_Q)
             priorities = computePrioritiesParallel(local_buffer_A[:,:-1],
                                                    local_buffer_R[:,:-1],
                                                    local_buffer_Q[:,:-1],
@@ -281,12 +282,12 @@ if __name__ == "__main__":
         , "device": 'cuda' if torch.cuda.is_available() else 'cpu'
         , "env": 'toric-code-v0'
         , "env_config": env_config
-        , "epsilon": [0,0,0,0,0]
+        , "epsilon": [0.4,0.6,0.8]
         , "discount_factor" : 0.95
         , "max_actions_per_episode" : 75
-        , "size_local_memory_buffer": 5
+        , "size_local_memory_buffer": 1
         , "n_step": 1
-        , "no_envs": 5
+        , "no_envs": 3
     }
 
     # res    = actor(0,0, args)

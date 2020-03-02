@@ -93,7 +93,6 @@ def actor(rank, world_size, args):
 
 
     # Local buffer of fixed size to store transitions before sending.
-    # n_step                      = args["n_step"]
     size_local_memory_buffer    = args["size_local_memory_buffer"] + 1
     local_buffer_T              = np.empty((no_envs, size_local_memory_buffer), dtype=transition_type)    # Transtions
     local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4), dtype=np.int) # A values
