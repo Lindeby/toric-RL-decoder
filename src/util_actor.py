@@ -25,7 +25,7 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     model.eval()
 
     # generate perspectives 
-    perspectives = generatePerspectiveOptimized(grid_shift, toric_size, state)
+    perspectives = generatePerspective(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
 
     # preprocess batch of perspectives and actions
@@ -268,3 +268,8 @@ def computePrioritiesParallel(A,R,Q,Qns,discount):
     row = np.arange(actions.shape[-1])
     Qv      = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
     return np.absolute(R + discount*Qns_max - Qv)
+
+def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
+    for t in range(0, n_step):
+        reward_buffer[idx - t] += (discount_factor)**(t)*reward
+    return reward_buffer

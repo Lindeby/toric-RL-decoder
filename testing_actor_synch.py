@@ -9,7 +9,7 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util_actor import selectAction, selectActionParallel, generateTransitionParallel, computePrioritiesParallel
+from src.util_actor import selectAction, selectActionParallel, generateTransitionParallel, computePrioritiesParallel, updateRewards
 from src.EnvSet import EnvSet
 from src.util import action_type
 
@@ -216,7 +216,7 @@ def actor_par(rank, world_size, args):
                                                 device = device)
         # print(action)
         next_state, reward, terminal_state, _ = envs.step(action)
-        # print(state, "\n")
+        print(state, "\n")
         # print(next_state)
 
         transition = generateTransitionParallel(action,
@@ -282,37 +282,35 @@ if __name__ == "__main__":
         , "device": 'cuda' if torch.cuda.is_available() else 'cpu'
         , "env": 'toric-code-v0'
         , "env_config": env_config
-        , "epsilon": [0.4,0.6,0.8]
+        , "epsilon": [0]
         , "discount_factor" : 0.95
         , "max_actions_per_episode" : 75
-        , "size_local_memory_buffer": 1
+        , "size_local_memory_buffer": 5
         , "n_step": 1
-        , "no_envs": 3
+        , "no_envs": 1
     }
 
-    # res    = actor(0,0, args)
+    res    = actor(0,0, args)
     respar = actor_par(0,0, args)
-    # print(respar)
-    # print("")
-    # print(res)
+ 
 
-    # for i in range(len(respar)):
-    #     nt = respar[i][0]
-    #     npr = respar[i][1]
-    #     t = res[i][0]
-    #     pr = res[i][1]
+    for i in range(len(respar)):
+        nt = respar[i][0]
+        npr = respar[i][1]
+        t = res[i][0]
+        pr = res[i][1]
 
-    #     print(np.all(np.equal(t.state, nt[0])))
-    #     print(t.reward == nt[2])
-    #     print(np.all(np.equal(t.next_state, nt[3])))
-    #     print(pr==npr)
-    #     if not (np.all(np.equal(t.state, nt[0])) and t.reward == nt[2] and np.all(np.equal(t.next_state, nt[3]))):
-    #         print("Actions: {}, {}".format(t.action, nt[1]))
-    #         print("State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.state, nt[0])),t.state, nt[0]))
-    #         print("Reward: (Equal? {}) \n{}, {}".format(t.reward == nt[2],t.reward, nt[2]))
-    #         print("Next State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.next_state, nt[3])), t.next_state, nt[3]))
-    #         print("Priorities: (Equal? {}) \n{}, {}".format(pr==npr,pr, npr))
-    #         exit()
+        print(np.all(np.equal(t.state, nt[0])))
+        print(t.reward == nt[2])
+        print(np.all(np.equal(t.next_state, nt[3])))
+        print(pr==npr)
+        if not (np.all(np.equal(t.state, nt[0])) and t.reward == nt[2] and np.all(np.equal(t.next_state, nt[3]))):
+            print("Actions: {}, {}".format(t.action, nt[1]))
+            print("State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.state, nt[0])),t.state, nt[0]))
+            print("Reward: (Equal? {}) \n{}, {}".format(t.reward == nt[2],t.reward, nt[2]))
+            print("Next State: (Equal? {}) \n{}\n--------\n{}".format(np.all(np.equal(t.next_state, nt[3])), t.next_state, nt[3]))
+            print("Priorities: (Equal? {}) \n{}, {}".format(pr==npr,pr, npr))
+            exit()
 
     for i in range(len(respar)):
         print(respar[i])
