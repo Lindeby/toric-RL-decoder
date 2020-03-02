@@ -50,8 +50,6 @@ if __name__ == "__main__":
                          device = device,
                          optimizer  = 'Adam',
                          replay_size= 1000,
-                         alpha = 0.6,
-                         beta = 0.4
                         )
 
         epsilons = [0.3]
@@ -60,7 +58,8 @@ if __name__ == "__main__":
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,
-                beta = 1,
+                beta = 0.4,
+                alpha = 0.6,
                 n_step = 1,
                 batch_size = 16,
                 policy_update = 100,

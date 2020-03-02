@@ -21,8 +21,6 @@ class Distributed():
                         device, 
                         optimizer, 
                         replay_size, 
-                        alpha, 
-                        beta, 
                         update_tb = 10
                         ):
 
@@ -35,8 +33,6 @@ class Distributed():
         self.optimizer = optimizer
         self.device = device
         self.replay_mem_size = replay_size
-        self.alpha = alpha
-        self.beta = beta        
         
         self.update_tb = update_tb
         self.tb_log_dir = "runs/{}".format(datetime.now().strftime("%d-%m-%Y_%H:%M:%S"))
@@ -49,6 +45,7 @@ class Distributed():
                     epsilons,
                     n_step,
                     beta,
+                    alpha,
                     batch_size, 
                     policy_update, 
                     discount_factor,
@@ -131,8 +128,8 @@ class Distributed():
         """
         mem_args = {
             "capacity"                          :self.replay_mem_size,
-            "alpha"                             :self.alpha,
-            "beta"                              :self.beta,
+            "alpha"                             :alpha,
+            "beta"                              :beta,
             "batch_size"                        :batch_size,
             "transition_queue_to_memory"        :transition_queue_to_memory,
             "transition_queue_from_memory"      :transition_queue_from_memory,
