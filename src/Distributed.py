@@ -163,7 +163,6 @@ class Distributed():
             "env_config"                    :self.env_config,
             "no_envs"                       :no_envs,
             "device"                        :self.device,
-            "beta"                          :beta,
             "discount_factor"               :discount_factor,
             "transition_queue_to_memory"    :transition_queue_to_memory,
             "n_step"                        :n_step

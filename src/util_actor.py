@@ -122,6 +122,18 @@ def generatePerspectiveParallel(grid_shift, toric_size, states):
 
 
 def selectActionParallel_prime(q_values, positions, greedy):
+    """ Helper function for selectActionParallel. This is the parallelizable part.
+
+    Params
+    ======
+    q_values:   (np.ndarray)
+    positions:  (np.ndarray)
+    greedy:     (np.ndarray)
+
+    Return
+    ======
+    (np.ndarray), (np.ndarray)
+    """
     actions = np.empty((len(q_values), 4), dtype=np.int)
     q_v     = np.empty((len(q_values), 3))
 

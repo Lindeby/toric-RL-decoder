@@ -52,9 +52,6 @@ def actor(rank, world_size, args):
                                     operate whenever possible
         , epsilon:                  (float) probability of selecting a
                                     random action
-        , beta:                     (float) parameter to determin the
-                                    level of compensation for bias when
-                                    computing priorities
         , n_step:                   (int) n-step learning
         , con_learner:              (multiprocessing.Connection) connection
                                     where new weights are received and termination
@@ -71,7 +68,6 @@ def actor(rank, world_size, args):
     device          = args["device"]
     discount_factor = args["discount_factor"]
     epsilon         = np.array(args["epsilon"])
-    beta            = args["beta"]
 
     # env and env params
     env = gym.make(args["env"], config=args["env_config"])
@@ -95,10 +91,10 @@ def actor(rank, world_size, args):
 
     # Local buffer of fixed size to store transitions before sending.
     size_local_memory_buffer    = args["size_local_memory_buffer"] + 1
-    local_buffer_T              = np.empty((no_envs, size_local_memory_buffer), dtype=transition_type)    # Transtions
-    local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4), dtype=np.int) # A values
-    local_buffer_Q              = np.empty((no_envs, size_local_memory_buffer), dtype=(np.float, 3)) # Q values
-    local_buffer_R              = np.empty((no_envs, size_local_memory_buffer))    # R values
+    local_buffer_T              = np.empty((no_envs, size_local_memory_buffer), dtype=transition_type)  # Transtions
+    local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4), dtype=np.int)        # A values
+    local_buffer_Q              = np.empty((no_envs, size_local_memory_buffer), dtype=(np.float, 3))    # Q values
+    local_buffer_R              = np.empty((no_envs, size_local_memory_buffer))                         # R values
     buffer_idx                  = 0
     
     # set network to eval mode
@@ -167,8 +163,7 @@ def actor(rank, world_size, args):
                                                    local_buffer_R[:,:-1],
                                                    local_buffer_Q[:,:-1],
                                                    np.roll(local_buffer_Q, -1, axis=1)[:,:-1],
-                                                   discount_factor,
-                                                   beta)
+                                                   discount_factor)
 
             to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
 
@@ -189,7 +184,7 @@ def actor(rank, world_size, args):
         
         state = next_state
 
-        # ready to terminate
+    # ready to terminate
     while True:
         msg, _ = con_learner.recv()
         if msg == "terminate":

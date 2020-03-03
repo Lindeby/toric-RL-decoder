@@ -160,6 +160,7 @@ def actor_par(rank, world_size, args):
     device = args["device"]
     discount_factor = args["discount_factor"]
     epsilon = np.array(args["epsilon"])
+    beta = args["beta"]
 
     # env and env params
     env = gym.make(args["env"], config=args["env_config"])
@@ -236,12 +237,12 @@ def actor_par(rank, world_size, args):
 
         # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:
-            print(local_buffer_Q)
             priorities = computePrioritiesParallel(local_buffer_A[:,:-1],
                                                    local_buffer_R[:,:-1],
                                                    local_buffer_Q[:,:-1],
                                                    np.roll(local_buffer_Q, -1, axis=1)[:,:-1],
-                                                   discount_factor)
+                                                   discount_factor,
+                                                   beta)
 
             to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
             # print(to_send)
@@ -282,12 +283,13 @@ if __name__ == "__main__":
         , "device": 'cuda' if torch.cuda.is_available() else 'cpu'
         , "env": 'toric-code-v0'
         , "env_config": env_config
-        , "epsilon": [0]
+        , "epsilon": [0.3]
+        , "beta": 1
         , "discount_factor" : 0.95
         , "max_actions_per_episode" : 75
         , "size_local_memory_buffer": 5
         , "n_step": 1
-        , "no_envs": 1
+        , "no_envs": 3
     }
 
     res    = actor(0,0, args)
