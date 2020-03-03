@@ -170,7 +170,8 @@ def learner():
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
-        y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
+        #y = batch_reward + ((~batch_terminal) * discount_factor * target_output)
+        y = batch_reward + ((~batch_terminal).type(torch.float) * discount_factor * target_output) 
         loss = criterion(y, policy_output)
         
         # Compute priorities

@@ -5,6 +5,7 @@ import gym, gym_ToricCode
 # saving
 from pathlib import Path
 from numpy import save
+import time
 
 def worker(T):
     config =    {  "size": 9,
@@ -52,8 +53,12 @@ def worker(T):
 
 
 if __name__ == "__main__":
-    mem_trans, mem_qs = worker(1000)
-
+    num_transitions = 10
+    start_time = time.time()
+    mem_trans, mem_qs = worker(num_transitions)
+    end_time = time.time()
+    elapsed_time = end_time -start_time
+    print("created ",num_transitions,"transitions in: ",elapsed_time)
     save_name = 'output_speed_test/transitions_'+str(0)+'.npy'
     save_name_q = 'output_speed_test/q_values_'+str(0)+'.npy'
     Path("output_speed_test").mkdir(parents=True, exist_ok=True)
