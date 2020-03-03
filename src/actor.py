@@ -67,10 +67,11 @@ def actor(rank, world_size, args):
     con_learner = args["con_learner"]
     transition_queue_to_memory = args["transition_queue_to_memory"] 
 
-    no_envs = args["no_envs"]
-    device = args["device"]
+    no_envs         = args["no_envs"]
+    device          = args["device"]
     discount_factor = args["discount_factor"]
-    epsilon = np.array(args["epsilon"])
+    epsilon         = np.array(args["epsilon"])
+    beta            = args["beta"]
 
     # env and env params
     env = gym.make(args["env"], config=args["env_config"])
@@ -166,7 +167,8 @@ def actor(rank, world_size, args):
                                                    local_buffer_R[:,:-1],
                                                    local_buffer_Q[:,:-1],
                                                    np.roll(local_buffer_Q, -1, axis=1)[:,:-1],
-                                                   discount_factor)
+                                                   discount_factor,
+                                                   beta)
 
             to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
 
