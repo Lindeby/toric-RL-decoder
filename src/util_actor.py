@@ -25,12 +25,12 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     model.eval()
 
     # generate perspectives 
-    perspectives = generatePerspectiveOptimized(grid_shift, toric_size, state)
+    perspectives, _ = generatePerspectiveOptimized(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
 
     # preprocess batch of perspectives and actions
-    perspectives = Perspective(*zip(*perspectives))
-    batch_perspectives = np.array(perspectives.perspective)
+    # perspectives = Perspective(*zip(*perspectives))
+    # batch_perspectives = np.array(perspectives.perspective)
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
