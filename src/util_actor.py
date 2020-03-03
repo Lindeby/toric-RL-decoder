@@ -255,21 +255,21 @@ def computePrioritiesParallel(A,R,Q,Qns,discount,beta):
     A:        (np.array)
     R:        (np.array)
     Q:        (np.array)
-    discount: (float)       Index for the final value to grab. Needed
-                            due to A, R, Q can have different amount of
-                            transitions stored in each environment.
+    discount: (float)
+    beta:     (float)
 
     Returns
     =======
     (np.array) absolute TD error.
     """
-    Qns_max = np.amax(Qns, axis=2)
-    actions = A[:,:,-1] -1
-    row = np.arange(actions.shape[-1])
-    Qv      = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
-    priorities = np.absolute(R + discount*Qns_max - Qv)
-    weights = np.divide(1, priorities.shape[1]*priorities, out=np.zeros_like(priorities), where=priorities>1e-16)**beta
-    return priorities*weights/np.amax(weights)
+    Qns_max     = np.amax(Qns, axis=2)
+    actions     = A[:,:,-1] -1
+    row         = np.arange(actions.shape[-1])
+    Qv          = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
+    priorities  = np.absolute(R + discount*Qns_max - Qv)
+    weights     = np.divide(1, priorities.shape[1]*priorities, out=np.zeros_like(priorities), where=priorities>1e-16)**beta
+    max_w       = 1/np.amax(weights, axis=1, keepdims=True)
+    return priorities*weights*max_w
 
 def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
     for t in range(0, n_step):
