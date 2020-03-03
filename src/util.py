@@ -7,6 +7,7 @@ from torch import from_numpy
 from collections import namedtuple
 
 Action = namedtuple('Action', ['position', 'action'])
+action_type = np.dtype([('position', (np.int, 3)), ('op', np.int)])
 
 Perspective = namedtuple('Perspective', ['perspective', 'position'])
 
@@ -81,7 +82,6 @@ def generatePerspective(grid_shift, toric_size, state):
                 temp = Perspective(new_state, (1,i,j))
                 perspectives.append(temp)
 
-    
     return perspectives
 
 def rotate_state(state):
@@ -120,6 +120,7 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
         index = (index + shift) % toric_size 
         return index
     perspectives = []
+    positions    = []
     vm = state[0,:,:]
     pm = state[1,:,:]
     # qubit matrix 0
@@ -130,7 +131,8 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
     for (i,j) in args:
         new_state = np.roll(state, grid_shift-i, axis=1)
         new_state = np.roll(new_state, grid_shift-j, axis=2)
-        perspectives.append(Perspective(new_state, (0,i,j)))
+        perspectives.append(new_state)
+        positions.append((0,i,j))
 
     # qubit matrix 1
     vme = np.where(np.roll(vm, -1, axis=1), 1, 0)
@@ -141,6 +143,7 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
         new_state = np.roll(state, grid_shift-i, axis=1)
         new_state = np.roll(new_state, grid_shift-j, axis=2)
         new_state = rotate_state(new_state) # rotate perspective clock wise
-        perspectives.append(Perspective(new_state, (1,i,j)))
+        perspectives.append(new_state)
+        positions.append((1,i,j))
 
-    return perspectives
+    return perspectives, positions

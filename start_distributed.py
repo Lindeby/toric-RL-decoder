@@ -49,9 +49,7 @@ if __name__ == "__main__":
                          env_config = env_config,
                          device = device,
                          optimizer  = 'Adam',
-                         replay_size= 10000,
-                         alpha = 0.6,
-                         beta = 0.4
+                         replay_size= 1000,
                         )
 
         epsilons = [0.3]
@@ -60,15 +58,17 @@ if __name__ == "__main__":
                 no_actors = 1,
                 learning_rate = 0.00025,
                 epsilons = epsilons,
-                beta = 1,
+                beta = 0.4,
+                alpha = 0.6,
                 n_step = 1,
-                batch_size = 32,
+                batch_size = 16,
                 policy_update = 100,
                 discount_factor = 0.95,
                 max_actions_per_episode = 75,
-                size_local_memory_buffer = 1000,
+                size_local_memory_buffer = 100,
                 eval_freq=100,
-                replay_size_before_sample = 1000
+                replay_size_before_sample = 100,
+                no_envs=1
                 )
 
 
