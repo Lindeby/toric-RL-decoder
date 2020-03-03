@@ -247,7 +247,7 @@ def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, d
 
 
 
-def computePrioritiesParallel(A,R,Q,Qns,discount):
+def computePrioritiesParallel(A,R,Q,Qns,discount,beta):
     """ Computes the absolute temporal difference value.
 
     Parameters
@@ -267,7 +267,9 @@ def computePrioritiesParallel(A,R,Q,Qns,discount):
     actions = A[:,:,-1] -1
     row = np.arange(actions.shape[-1])
     Qv      = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
-    return np.absolute(R + discount*Qns_max - Qv)
+    priorities = np.absolute(R + discount*Qns_max - Qv)
+    weights = np.divide(1, priorities.shape[1]*priorities, out=np.zeros_like(priorities), where=priorities>1e-16)**beta
+    return priorities*weights/np.amax(weights)
 
 def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
     for t in range(0, n_step):
