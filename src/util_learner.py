@@ -25,7 +25,6 @@ def dataToBatch(data, device):
     batch = data[0]
     weights = data[1]
     index = data[2]
-
     weights = from_numpy(np.array(weights)).type('torch.Tensor').to(device)
 
     # preprocess batch_input and batch_target_input for the network
