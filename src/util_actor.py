@@ -63,6 +63,70 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     q_values = q_values_table[p]
     return action, q_values
 
+def generateTransition( action, 
+                        reward, 
+                        grid_shift,       
+                        previous_state,   
+                        state,                
+                        terminal_state    
+                        ):
+    """ Generates a transition tuple to be stored in the replay memory.
+
+    Params
+    ======
+    action:         (np.array)
+    reward:         (float)
+    grid_shift:     (int)
+    previous_state: (np.ndarry)
+    state:          (np.ndarray)
+    terminal_state: (bool)
+
+    Return
+    ======
+    (tuple) a tuple to be stored in the replay buffer.
+    """
+
+    qubit_matrix = action[0]
+    row = action[1]
+    col = action[2]
+    add_operator = action[3]
+    if qubit_matrix == 0:
+        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
+        action = Action((0, grid_shift, grid_shift), add_operator)
+    elif qubit_matrix == 1:
+        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
+        previous_perspective = rotate_state(previous_perspective)
+        perspective = rotate_state(perspective)
+        action = Action((1, grid_shift, grid_shift), add_operator)
+    
+    return Transition(previous_perspective, action, reward, perspective, terminal_state)
+
+def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
+    """ Computes the absolute temporal difference value.
+
+    Parameters
+    ==========
+    local_buffer:        (list) local transitions from the actor
+    q_values_buffer:     (list) q values for respective action
+    discount_factor:     (float) discount future rewards
+
+    Returns
+    =======
+    (np.array) absolute TD error. (r + Qmax(st+1, a) - Q(st,a))
+    """
+    # TODO: This can be done a lot faster by simply storing rewards in an array as well.
+    # Its a time consuming process trying to extraxt the rewards
+    transitions     = Transition(*zip(*local_buffer_trans))
+    reward_batch    = np.array(transitions.reward)          # get rewards
+    qv_max_ns       = np.amax(local_buffer_qs_ns, axis=1)   # get Qmax
+    qv_st           = np.array([local_buffer_qs[i][a.action-1] for i, a in enumerate(transitions.action)])
+    return np.absolute(reward_batch + discount_factor*qv_max_ns - qv_st)
+
+def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
+    for t in range(0, n_step):
+        reward_buffer[idx - t] += (discount_factor)**(t)*reward
+    return reward_buffer
+
 
 def selectActionParallel(number_of_actions, epsilon, grid_shift,
                     toric_size, state, model, device):
@@ -155,44 +219,6 @@ def selectActionParallel_prime(q_values, positions, greedy):
     return actions, q_v
 
 
-def generateTransition( action, 
-                        reward, 
-                        grid_shift,       
-                        previous_state,   
-                        state,                
-                        terminal_state    
-                        ):
-    """ Generates a transition tuple to be stored in the replay memory.
-
-    Params
-    ======
-    action:         (np.array)
-    reward:         (float)
-    grid_shift:     (int)
-    previous_state: (np.ndarry)
-    state:          (np.ndarray)
-    terminal_state: (bool)
-
-    Return
-    ======
-    (tuple) a tuple to be stored in the replay buffer.
-    """
-
-    qubit_matrix = action[0]
-    row = action[1]
-    col = action[2]
-    add_operator = action[3]
-    if qubit_matrix == 0:
-        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
-        action = Action((0, grid_shift, grid_shift), add_operator)
-    elif qubit_matrix == 1:
-        previous_perspective, perspective = shift_state(row, col, previous_state, state, grid_shift)
-        previous_perspective = rotate_state(previous_perspective)
-        perspective = rotate_state(perspective)
-        action = Action((1, grid_shift, grid_shift), add_operator)
-    
-    return Transition(previous_perspective, action, reward, perspective, terminal_state)
-
 def generateTransitionParallel( action, 
                                 reward, 
                                 state,   
@@ -236,27 +262,6 @@ def generateTransitionParallel( action,
         result[i] = Transition(previous_perspective, a, reward[i], perspective, terminal_state[i])
     return result
 
-def computePriorities(local_buffer_trans, local_buffer_qs, local_buffer_qs_ns, discount_factor):
-    """ Computes the absolute temporal difference value.
-
-    Parameters
-    ==========
-    local_buffer:        (list) local transitions from the actor
-    q_values_buffer:     (list) q values for respective action
-    discount_factor:     (float) discount future rewards
-
-    Returns
-    =======
-    (np.array) absolute TD error. (r + Qmax(st+1, a) - Q(st,a))
-    """
-    # TODO: This can be done a lot faster by simply storing rewards in an array as well.
-    # Its a time consuming process trying to extraxt the rewards
-    transitions     = Transition(*zip(*local_buffer_trans))
-    reward_batch    = np.array(transitions.reward)          # get rewards
-    qv_max_ns       = np.amax(local_buffer_qs_ns, axis=1)   # get Qmax
-    qv_st           = np.array([local_buffer_qs[i][a.action-1] for i, a in enumerate(transitions.action)])
-    return np.absolute(reward_batch + discount_factor*qv_max_ns - qv_st)
-
 
 
 def computePrioritiesParallel(A,R,Q,Qns,discount):
@@ -280,7 +285,3 @@ def computePrioritiesParallel(A,R,Q,Qns,discount):
     Qv          = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
     return np.absolute(R + discount*Qns_max - Qv) 
 
-def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
-    for t in range(0, n_step):
-        reward_buffer[idx - t] += (discount_factor)**(t)*reward
-    return reward_buffer
