@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from numba import njit, prange
+from numba import njit
 
 
 @njit
