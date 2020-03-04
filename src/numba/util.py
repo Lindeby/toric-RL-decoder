@@ -33,6 +33,7 @@ def rotate_state(state):
         return rot_state 
 
 
+@njit
 def generatePerspectiveOptimized(grid_shift, toric_size, state):
     """ Generates the perspectives for a given syndrom.
 
@@ -46,35 +47,39 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
     ======
     (np.ndarray) All the perspectives
     """
-    def mod(index, shift):
-        index = (index + shift) % toric_size 
-        return index
     perspectives = []
     positions    = []
     vm = state[0,:,:]
     pm = state[1,:,:]
     
     # qubit matrix 0
-    vme = np.where(np.roll(vm, -1, axis=0), 1, 0)
-    pme = np.where(np.roll(pm,  1, axis=1), 1, 0)
-    err  = np.logical_or.reduce(np.array([vm, vme, pm, pme]))
+    vme = np.where(roll2dAxis0(vm, -1), 1, 0)
+    pme = np.where(roll2dAxis1(pm,  1), 1, 0)
+    err0 = np.logical_or(vm, vme)
+    err1 = np.logical_or(pm, pme)
+    err  = np.logical_or(err0, err1)
     args = np.argwhere(err == 1)
-    for (i,j) in args:
-        new_state = np.roll(state, grid_shift-i, axis=1)
-        new_state = np.roll(new_state, grid_shift-j, axis=2)
+    for a in range(len(args)):
+        i, j = args[a]
+        new_state = roll3dAxis1(state, grid_shift-i)
+        new_state = roll3dAxis2(new_state, grid_shift-j)
         perspectives.append(new_state)
         positions.append((0,i,j))
 
     # qubit matrix 1
-    vme = np.where(np.roll(vm, -1, axis=1), 1, 0)
-    pme = np.where(np.roll(pm,  1, axis=0), 1, 0)
-    err  = np.logical_or.reduce(np.array([vm, vme, pm, pme]))
+    vme = np.where(roll2dAxis1(vm, -1), 1, 0)
+    pme = np.where(roll2dAxis0(pm,  1), 1, 0)
+    err0 = np.logical_or(vm, vme)
+    err1 = np.logical_or(pm, pme)
+    err  = np.logical_or(err0, err1)
     args = np.argwhere(err == 1)
-    for (i,j) in args:
-        new_state = np.roll(state, grid_shift-i, axis=1)
-        new_state = np.roll(new_state, grid_shift-j, axis=2)
+    for a in range(len(args)):
+        i, j = args[a]
+        new_state = roll3dAxis1(state, grid_shift-i)
+        new_state = roll3dAxis2(new_state, grid_shift-j)
         new_state = rotate_state(new_state) # rotate perspective clock wise
         perspectives.append(new_state)
         positions.append((1,i,j))
 
     return perspectives, positions
+

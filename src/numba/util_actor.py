@@ -1,8 +1,10 @@
 import random, torch
 import numpy as np
 from src.numba.util import generatePerspectiveOptimized, rotate_state, shift_state, Perspective, Transition, Action
+from src.numba.max import max3dAxis2
 from torch import from_numpy
 from numba import njit, jit
+from numba.typed import List
 
 
 def selectActionParallel(number_of_actions, epsilon, grid_shift,
@@ -27,11 +29,11 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
     model.eval()
 
     # generate perspectives
-    perspectives, positions = generatePerspectiveParallel(grid_shift, toric_size, state)
+    perspectives, positions, splice_idx = generatePerspectiveParallel(grid_shift, toric_size, state)
 
-    splice_idx = [len(p) for p in perspectives]
     splice_idx = np.cumsum(splice_idx)
-
+ 
+    positions    = np.concatenate(positions)
     perspectives = np.concatenate(perspectives)
     perspectives = from_numpy(perspectives).type('torch.Tensor').to(device)
 
@@ -45,25 +47,26 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
     #choose action using epsilon greedy approach
     rand            = np.random.random(len(state))
     greedy          = (1 - epsilon) > rand
-    q_values        = np.split(q_values_table, splice_idx[:-1])
 
-    actions, q_values = selectActionParallel_prime(q_values, positions, greedy)
+    actions, q_values = selectActionParallel_prime(q_values_table, splice_idx, positions, greedy)
     return actions.astype('int64'), q_values
 
 
+@njit
 def generatePerspectiveParallel(grid_shift, toric_size, states):
-    per_result = []
-    pos_result = []
+    per_result = List()
+    pos_result = List()
+    pos_idx    = List()
     for i in range(len(states)):
         per, pos = generatePerspectiveOptimized(grid_shift, toric_size, states[i])
         per_result.append(per)
         pos_result.append(pos)
+        pos_idx.append(len(per))
 
-    return np.array(per_result), np.array(pos_result)
+    return per_result, pos_result, pos_idx
 
-
-
-def selectActionParallel_prime(q_values, positions, greedy):
+@njit
+def selectActionParallel_prime(q_values_table, splice_idx, positions, greedy):
     """ Helper function for selectActionParallel. This is the parallelizable part.
 
     Params
@@ -76,23 +79,29 @@ def selectActionParallel_prime(q_values, positions, greedy):
     ======
     (np.ndarray), (np.ndarray)
     """
-    actions = np.empty((len(q_values), 4))
-    q_v     = np.empty((len(q_values), 3))
 
-    for state in range(len(q_values)):
-        if greedy[state]:
-            p0, a0 = np.where(q_values[state] == np.max(q_values[state]))
+    actions = np.empty((len(splice_idx), 4))
+    q_v     = np.empty((len(splice_idx), 3))
+    first = 0
+    for i in range(len(splice_idx)):
+        end = splice_idx[i]
+        q_values = q_values_table[first:end]
+        pos = positions[first:end]
+
+        if greedy[i]:
+            p0, a0 = np.where(q_values == np.amax(q_values))
             p = p0[0]
             a = a0[0]
         else:
-            p = np.random.randint(0, len(q_values[state]))
+            p = np.random.randint(0, len(q_values))
             a = np.random.randint(0, 3)
 
-        q_v[state,:]  = q_values[state][p]
-        actions[state,:] = [ positions[state][p][0],
-                             positions[state][p][1],
-                             positions[state][p][2],
+        q_v[i,:]     = q_values[p]
+        actions[i,:] = [ pos[p][0],
+                         pos[p][1],
+                         pos[p][2],
                              a +1]
+        first = splice_idx[i]
 
     return actions, q_v
 
@@ -118,7 +127,7 @@ def generateTransitionParallel( action,
 
     Return
     ======
-    (tuple) a tuple to be stored in the replay buffer.
+    (np.ndarray)
     """
 
     result = np.empty(next_state.shape[0], dtype=trans_type)
@@ -162,4 +171,3 @@ def computePrioritiesParallel(A,R,Q,Qns,discount):
     row         = np.arange(actions.shape[-1])
     Qv          = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
     return np.absolute(R + discount*Qns_max - Qv) 
-

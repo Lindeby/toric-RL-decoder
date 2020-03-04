@@ -98,6 +98,7 @@ def actor(rank, world_size, args):
 
         # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:
+
             priorities = computePrioritiesParallel(local_buffer_A[:,:-1],
                                                    local_buffer_R[:,:-1],
                                                    local_buffer_Q[:,:-1],
@@ -134,8 +135,8 @@ if __name__ == "__main__":
 
 
     for i in range(1,100):
-        TRANSITIONS_TO_GENERATE = 100
-        NO_ENVS = i
+        TRANSITIONS_TO_GENERATE = 10
+        NO_ENVS = 2
 
         env_config = {  
             "size": 3,
