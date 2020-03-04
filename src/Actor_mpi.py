@@ -9,11 +9,12 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.util import Action, Perspective, Transition, generatePerspective, rotate_state, shift_state
-from src.util_actor import updateRewards, selectAction, computePriorities, generateTransition
+from src.util import action_type
+from src.util_actor import generateTransitionParallel, selectActionParallel, computePrioritiesParallel #,selectAction, computePriorities, generateTransition
 
 # Quality of life
 from src.nn.torch.NN import NN_11, NN_17
+from src.EnvSet import EnvSet
             
 
 def actor(args):
@@ -46,11 +47,36 @@ def actor(args):
     model.eval()
     
     # env and env params
+    no_envs = args["no_envs"]
     env = gym.make(args["env"], config=args["env_config"])
+    envs = EnvSet(env, no_envs)
+    size = env.system_size
 
     no_actions = int(env.action_space.high[-1])
     grid_shift = int(env.system_size/2)
     
+    epsilon = args["epsilon"]
+    
+    
+    transition_type = np.dtype([('perspective', (np.int, (2,size,size))),
+                                ('action', action_type),
+                                ('reward', np.float),
+                                ('next_perspective', (np.int, (2,size,size))),
+                                ('terminal',np.bool)])
+
+    # startup
+    state = envs.resetAll()
+    steps_per_episode = np.zeros(no_envs)
+
+
+    # Local buffer of fixed size to store transitions before sending.
+    size_local_memory_buffer    = args["size_local_memory_buffer"] + 1
+    local_buffer_T              = np.empty((no_envs, size_local_memory_buffer), dtype=transition_type)  # Transtions
+    local_buffer_A              = np.empty((no_envs, size_local_memory_buffer, 4), dtype=np.int)        # A values
+    local_buffer_Q              = np.empty((no_envs, size_local_memory_buffer), dtype=(np.float, 3))    # Q values
+    local_buffer_R              = np.empty((no_envs, size_local_memory_buffer))                         # R values
+    buffer_idx                  = 0
+
     # Get initial network params
     base_comm = args["mpi_base_comm"]
     learner_rank = args["mpi_learner_rank"]
@@ -68,48 +94,42 @@ def actor(args):
     steps_counter = 0
     update_counter = 1
     local_memory_index = 0
-    
-    # startup
-    state = env.reset()
-    steps_per_episode = 0
-   
     # main loop over training steps
+    
+    print("Actor start loop")
     while True:
         
 
         steps_per_episode += 1    
         # select action using epsilon greedy policy
-        action, q_values = selectAction(number_of_actions=no_actions,
-                                        epsilon=args["epsilon"], 
-                                        grid_shift=grid_shift,
-                                        toric_size = env.system_size,
-                                        state = state,
-                                        model = model,
-                                        device = device)
 
-        next_state, reward, terminal_state, _ = env.step(action)
-
-        n_step_A[n_step_idx] = action
-        n_step_S[n_step_idx] = state # Keep in mind that next state is not saved until next iteration
-        n_step_Q[n_step_idx] = q_values
-        n_step_R[n_step_idx] = 0
-        n_step_R = updateRewards(n_step_R, n_step_idx, reward, n_step, discount_factor) # Remember to 0 as well!
-
-        if not (None in n_step_A):
-            transition = generateTransition(n_step_A[n_step_idx-n_step],
-                                            n_step_R[n_step_idx-n_step],
-                                            grid_shift, 
-                                            n_step_S[n_step_idx-n_step],
-                                            next_state, 
-                                            terminal_state        
-                                            )
-            local_buffer_T[buffer_idx] = transition
-            local_buffer_Q[buffer_idx] = n_step_Q[n_step_idx-n_step]
-            buffer_idx += 1
-
-        n_step_idx = (n_step_idx+1) % n_step
+        action, q_values = selectActionParallel(number_of_actions=no_actions,
+                                                epsilon=epsilon,
+                                                grid_shift=grid_shift,
+                                                toric_size = size,
+                                                state = state,
+                                                model = model,
+                                                device = device)
+        next_state, reward, terminal_state, _ = envs.step(action)
         
+        transition = generateTransitionParallel(action,
+                                                reward, 
+                                                state,
+                                                next_state, 
+                                                terminal_state,
+                                                grid_shift,
+                                                transition_type)
+
+        local_buffer_T[:, buffer_idx] = transition
+        local_buffer_A[:, buffer_idx] = action
+        local_buffer_Q[:, buffer_idx] = q_values
+        local_buffer_R[:, buffer_idx] = reward
+        buffer_idx += 1
+
+    
+        # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:
+            print("Actor Sync")
             # receive new weights
             msg = base_comm.bcast(msg, root=learner_rank)
             msg, weights = msg
@@ -117,26 +137,31 @@ def actor(args):
                 vector_to_parameters(weights.to(device), model.parameters())
             elif msg == "terminate":
                 break; 
-            # disregard latest transition ssince it has no next state to compute priority for
-            priorities = computePriorities( local_buffer_T[:-n_step],
-                                            local_buffer_Q[:-n_step],
-                                            np.roll(local_buffer_Q, -n_step)[:-n_step],
-                                            discount_factor**n_step)      
-            to_send = [*zip(local_buffer_T[:-n_step], priorities)]
+
+            priorities = computePrioritiesParallel(local_buffer_A[:,:-1],
+                                                   local_buffer_R[:,:-1],
+                                                   local_buffer_Q[:,:-1],
+                                                   np.roll(local_buffer_Q, -1, axis=1)[:,:-1],
+                                                   discount_factor)
+
+            to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
+
             # send buffer to learner
             base_comm.gather(to_send, root=learner_rank)
             buffer_idx = 0
+
+        too_many_steps = steps_per_episode > args["max_actions_per_episode"]
+        if np.any(terminal_state) or np.any(too_many_steps):
             
+            # Reset terminal envs
+            idx = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten()
+            reset_states = envs.resetTerminalEnvs(idx)
 
-        if terminal_state or steps_per_episode > args["max_actions_per_episode"]:
             # Reset n_step buffers
-            n_step_S        = [None] * n_step
-            n_step_A        = [None] * n_step
-            n_step_R        = [0   ] * n_step
+            next_state[idx]        = reset_states
+            steps_per_episode[idx] = 0
+        
+        state = next_state
 
-            # reset env
-            state = env.reset()
-            steps_per_episode = 0
-        else:
-            state = next_state
+
     
