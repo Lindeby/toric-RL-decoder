@@ -123,6 +123,7 @@ def generatePerspectiveOptimized(grid_shift, toric_size, state):
     positions    = []
     vm = state[0,:,:]
     pm = state[1,:,:]
+    
     # qubit matrix 0
     vme = np.where(np.roll(vm, -1, axis=0), 1, 0)
     pme = np.where(np.roll(pm,  1, axis=1), 1, 0)
