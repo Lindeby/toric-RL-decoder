@@ -284,3 +284,26 @@ def updateRewards(reward_buffer, idx, reward, n_step, discount_factor):
     for t in range(0, n_step):
         reward_buffer[idx - t] += (discount_factor)**(t)*reward
     return reward_buffer
+
+def calculateEpsilon(e, alpha, num):
+    """ Calculate array of epsilons acording to 
+        ei = e^(1+(i/(n-1))*alpha)
+    
+    Parameters
+    ==========
+    e:        start epsilon (float)
+    alpha:    (float)
+    num:      number of epsilons (int)
+
+    Returns
+    =======
+    (np.array) epsilons
+    """
+    epsilons = np.zeros(num)
+    for i in range(num):
+        epsilons[i] = e**(1+(i/(num-1))*alpha)
+
+    return epsilons
+
+
+ 

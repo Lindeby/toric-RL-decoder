@@ -67,6 +67,7 @@ def learner(args, memory_args):
     w = params.detach().to('cpu')
     msg = ("weights", w)
     base_comm.bcast(msg, root=learner_rank)
+    print("Learner done sending inital weights")
     
     # define criterion and optimizer
     optimizer = None
@@ -102,6 +103,8 @@ def learner(args, memory_args):
             
             for i in range(len(a_transitions)):
                 replay_memory.save(a_transitions[i][0], a_transitions[i][1])
+
+    print("Replay memory enough transitions start training") 
          
     t = None
     # Start training
@@ -118,6 +121,7 @@ def learner(args, memory_args):
         # - Send new weights to actors
         if t % synchronize == 0:
 
+            print("Learner Syncronize : training step: ",t)
             params = parameters_to_vector(policy_net.parameters())
             # update policy network
             vector_to_parameters(params, target_net.parameters())
@@ -180,7 +184,8 @@ def learner(args, memory_args):
     # training done
     msg = ("terminate", None)
     base_comm.bcast(msg, root=learner_rank)
-    torch.save(policy_net.state_dict(), "network/mpi/Size_{}_{}.pt".format(system_size, type(policy_net).__name__))
+    save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
+    torch.save(policy_net.state_dict(), save_path)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time 
