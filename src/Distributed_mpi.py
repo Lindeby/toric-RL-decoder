@@ -31,7 +31,7 @@ def start_distributed_mpi():
    
     # Actor specific
     actor_max_actions_per_episode = 25 
-    actor_size_local_memory_buffer = 15
+    actor_size_local_memory_buffer = 5
     actor_beta = 1 
     actor_device = 'cpu'
     actor_n_step = 1
@@ -52,8 +52,8 @@ def start_distributed_mpi():
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
-    #model = ResNet18
-    model = NN_11
+    model = ResNet18
+    #model = NN_11
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": 3
                     }
@@ -72,9 +72,12 @@ def start_distributed_mpi():
                 break 
     
     learner_rank = base_comm.bcast(learner_rank, root=0)
+   
 
     # Learner
     if base_rank == learner_rank:
+
+        print("Learner rank:",base_rank)
     
         """
             Learner Process
@@ -113,7 +116,8 @@ def start_distributed_mpi():
               
     # Actor
     else:
-    
+        
+        print("Actor rank",base_rank) 
         """
             Actor Processes
         """
