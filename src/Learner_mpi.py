@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pipe
 
 # other
 import numpy as np
@@ -38,24 +38,17 @@ def learner(args, memory_args):
     grid_shift = int(env_config["size"]/2)
     synchronize = args["synchronize"]
 
-    world_size = base_comm.Get_size()
-    
     learner_io_queue = Queue()
     io_learner_queue = Queue() 
-    con_learner = Pipe(duplex=False)
-    memory_args["con_learner"] = con_learner
+    con_io_r, con_learner_w = Pipe(duplex=False)
+    memory_args["con_learner"] = con_learner_w
     memory_args["learner_io_queue"] = learner_io_queue
     memory_args["io_learner_queue"] = io_learner_queue
     memory_args["mpi_base_comm"] = base_comm
     memory_args["mpi_learner_rank"] = learner_rank
     
-    io_process = Process(target=io, args=memory_args)
+    io_process = Process(target=io, args=(memory_args,))
     io_process.start()
-
-
-
-    
-    
 
     # Init policy net
     policy_class = args["model"]
@@ -111,27 +104,15 @@ def learner(args, memory_args):
             # update policy network
             vector_to_parameters(params, target_net.parameters())
             target_net.to(device) # dont know if this is needed
-            # broadcast weights
+
+            # put new weights in queue to IO
             w = params.detach().to('cpu')
             msg = ("weights", w)
-            base_comm.bcast(msg, root=learner_rank)
-            # gather transitions from actors
-            actor_transitions = []
-            actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
-            # save transitions in replay memory
-            for a in range(0, world_size):
-                if a == learner_rank:
-                    continue
-                a_transitions = actor_transitions[a]
-                
-                for i in range(len(a_transitions)):
-                    replay_memory.save(a_transitions[i][0], a_transitions[i][1])
+            learner_io_queue.put(msg)
 
-        #print("learner: traning step: ",t+1," / ",train_steps)
         
-        transitions, weights, indices = replay_memory.sample(batch_size, memory_beta)
-        data = (transitions, weights, indices)
-
+        print("io_learner size: ",io_learner_queue.qsize())
+        data = io_learner_queue.get()
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
         policy_net.train()
@@ -164,13 +145,19 @@ def learner(args, memory_args):
         optimizer.step()
 
         # update priorities in replay_memory
-        replay_memory.priority_update(indices, priorities)
+        p_update = (indices, priorities)
+        msg = ("priorities", p_update)
+        learner_io_queue.put(msg) 
     
     # training done
+    
     msg = ("terminate", None)
-    base_comm.bcast(msg, root=learner_rank)
+    learner_io_queue.put(msg)
     save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
+    con_io_r.recv()
+    learner_io_queue.close()
+    learner_io_queue.close()
     io_process.join() 
     stop_time = time.time()
     elapsed_time = stop_time - start_time 

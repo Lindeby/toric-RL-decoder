@@ -9,6 +9,7 @@ import numpy as np
 
 from datetime import datetime
 
+
 def start_distributed_mpi():
 
     # Setup
@@ -43,6 +44,7 @@ def start_distributed_mpi():
     replay_memory_alpha = 0.6
     replay_memory_beta = 0.4
     replay_memory_size_before_sampeling = 100#replay_memory_size * 0.05
+    replay_memory_batch_in_queue_limit = 10 #number of batches in queue to learner
     
     # Shared
     batch_size = 32
@@ -106,6 +108,7 @@ def start_distributed_mpi():
             "alpha"                             :replay_memory_alpha,
             "beta"                              :replay_memory_beta,
             "batch_size"                        :batch_size,
+            "batch_in_queue_limit"              :replay_memory_batch_in_queue_limit,
             "replay_size_before_sampling"       :replay_memory_size_before_sampeling if not (replay_memory_size_before_sampeling is None) else min(batch_size, int(replay_memory_size*0.1)),
         }
     
