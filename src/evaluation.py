@@ -1,4 +1,4 @@
-from src.util import load_network, incrementalMean, generatePerspective, Perspective, Action, convert_from_np_to_tensor
+from src.util import load_network, incrementalMean, generatePerspectiveOptimized, Perspective, Action, convert_from_np_to_tensor
 import numpy as np
 from copy import deepcopy
 import random, torch
@@ -142,14 +142,12 @@ def select_action_prediction(model, device, state, toric_size, number_of_actions
     # set network in eval mode
     model.eval()
     # generate perspectives
-    perspectives = generatePerspective(grid_shift, toric_size, state)
+    perspectives, position = generatePerspectiveOptimized(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
     # preprocess batch of perspectives and actions 
-    perspectives = Perspective(*zip(*perspectives))
-    batch_perspectives = np.array(perspectives.perspective)
-    batch_perspectives = convert_from_np_to_tensor(batch_perspectives)
+    batch_perspectives = convert_from_np_to_tensor(np.array(perspectives))
     batch_perspectives = batch_perspectives.to(device)
-    batch_position_actions = perspectives.position
+    batch_position_actions = np.array(position)
     # generate action value for different perspectives 
     with torch.no_grad():
         policy_net_output = model(batch_perspectives)

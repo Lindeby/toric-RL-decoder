@@ -10,7 +10,7 @@ import random, gym
 from copy import deepcopy
 # from file 
 from src.util_actor import generateTransitionParallel, computePrioritiesParallel
-from src.numba.util_actor import selectActionParallel, generatePerspectiveParallel
+from src.numba.util_actor import selectActionBatch
 from src.util import action_type
 from src.EnvSet import EnvSet
 
@@ -134,7 +134,7 @@ def actor(rank, world_size, args):
         steps_per_episode += 1
 
         # select action using epsilon greedy policy
-        action, q_values = selectActionParallel(number_of_actions=no_actions,
+        action, q_values = selectActionBatch(number_of_actions=no_actions,
                                                 epsilon=epsilon,
                                                 grid_shift=grid_shift,
                                                 toric_size = size,

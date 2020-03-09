@@ -8,7 +8,7 @@ from numba import njit, jit
 from numba.typed import List
 
 
-def selectActionParallel(number_of_actions, epsilon, grid_shift,
+def selectActionBatch(number_of_actions, epsilon, grid_shift,
                     toric_size, state, model, device):
     """ Selects an action according to a epsilon-greedy policy.
 
@@ -30,7 +30,7 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
     model.eval()
 
     # generate perspectives
-    perspectives, positions, splice_idx = generatePerspectiveParallel(grid_shift, toric_size, state)
+    perspectives, positions, splice_idx = generatePerspectiveBatch(grid_shift, toric_size, state)
 
     splice_idx = np.cumsum(splice_idx)
  
@@ -49,12 +49,12 @@ def selectActionParallel(number_of_actions, epsilon, grid_shift,
     rand            = np.random.random(len(state))
     greedy          = (1 - epsilon) > rand
 
-    actions, q_values = selectActionParallel_prime(q_values_table, splice_idx, positions, greedy)
+    actions, q_values = _selectActionBatch_prime(q_values_table, splice_idx, positions, greedy)
     return actions.astype('int64'), q_values
 
 
 @njit
-def generatePerspectiveParallel(grid_shift, toric_size, states):
+def generatePerspectiveBatch(grid_shift, toric_size, states):
     per_result = List()
     pos_result = List()
     pos_idx    = List()
@@ -67,7 +67,7 @@ def generatePerspectiveParallel(grid_shift, toric_size, states):
     return per_result, pos_result, pos_idx
 
 @njit
-def selectActionParallel_prime(q_values_table, splice_idx, positions, greedy):
+def _selectActionBatch_prime(q_values_table, splice_idx, positions, greedy):
     """ Helper function for selectActionParallel. This is the parallelizable part.
 
     Params
