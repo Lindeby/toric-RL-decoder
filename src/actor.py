@@ -4,13 +4,13 @@ import torch.distributed as dist
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
 
-import gym
 # python lib
 import numpy as np 
-import random
+import random, gym
 from copy import deepcopy
 # from file 
-from src.util_actor import generateTransitionParallel, selectActionParallel, computePrioritiesParallel #,selectAction, computePriorities, generateTransition
+from src.util_actor import generateTransitionParallel, computePrioritiesParallel
+from src.numba.util_actor import selectActionParallel, generatePerspectiveParallel
 from src.util import action_type
 from src.EnvSet import EnvSet
 

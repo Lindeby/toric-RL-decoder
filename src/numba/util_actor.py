@@ -1,6 +1,7 @@
 import random, torch
 import numpy as np
-from src.numba.util import generatePerspectiveOptimized, rotate_state, shift_state, Perspective, Transition, Action
+from src.numba.util import generatePerspectiveOptimized, rotate_state, shift_state
+from src.util import Perspective, Transition, Action 
 from src.numba.max import max3dAxis2
 from torch import from_numpy
 from numba import njit, jit
@@ -105,69 +106,3 @@ def selectActionParallel_prime(q_values_table, splice_idx, positions, greedy):
 
     return actions, q_v
 
-
-def generateTransitionParallel( action, 
-                                reward, 
-                                state,   
-                                next_state,                
-                                terminal_state,
-                                grid_shift,
-                                trans_type
-                                ):
-    """ Generates a transition tuple to be stored in the replay memory.
-
-    Params
-    ======
-    action:         (np.array)
-    reward:         (float)
-    grid_shift:     (int)
-    previous_state: (np.ndarry)
-    next_state:     (np.ndarray)
-    terminal_state: (bool)
-
-    Return
-    ======
-    (np.ndarray)
-    """
-
-    result = np.empty(next_state.shape[0], dtype=trans_type)
-
-    for i in range(next_state.shape[0]):
-        qm  = action[i][0]
-        row = action[i][1]
-        col = action[i][2]
-        op  = action[i][3]
-        if qm == 0:
-            previous_perspective, perspective = shift_state(row, col, state[i], next_state[i], grid_shift)
-            a = Action((0, grid_shift, grid_shift), op)
-        elif qm == 1:
-            previous_perspective, perspective = shift_state(row, col, state[i], next_state[i], grid_shift)
-            previous_perspective = rotate_state(previous_perspective)
-            perspective = rotate_state(perspective)
-            a = Action((1, grid_shift, grid_shift), op)
-
-        result[i] = Transition(previous_perspective, a, reward[i], perspective, terminal_state[i])
-    return result
-
-
-
-def computePrioritiesParallel(A,R,Q,Qns,discount):
-    """ Computes the absolute temporal difference value.
-
-    Parameters
-    ==========
-    A:        (np.array)
-    R:        (np.array)
-    Q:        (np.array)
-    discount: (float)
-    beta:     (float)
-
-    Returns
-    =======
-    (np.array) absolute TD error.
-    """
-    Qns_max     = np.amax(Qns, axis=2)
-    actions     = A[:,:,-1] -1
-    row         = np.arange(actions.shape[-1])
-    Qv          = np.array([Q[env,row,actions[env]] for env in range(len(Q))])
-    return np.absolute(R + discount*Qns_max - Qv) 

@@ -13,8 +13,9 @@ import numpy as np
 import random
 from copy import deepcopy
 # from file 
-from src.numba.util_actor import generateTransitionParallel, selectActionParallel, computePrioritiesParallel, generatePerspectiveParallel
-from src.numba.util import action_type
+from src.numba.util_actor import selectActionParallel, generatePerspectiveParallel
+from src.util_actor import generateTransitionParallel, computePrioritiesParallel
+from src.util import action_type
 from src.EnvSet import EnvSet
 
 # Quality of life
@@ -135,7 +136,7 @@ if __name__ == "__main__":
 
 
     for i in range(1,100):
-        TRANSITIONS_TO_GENERATE = 10
+        TRANSITIONS_TO_GENERATE = 1000
         NO_ENVS = 2
 
         env_config = {  

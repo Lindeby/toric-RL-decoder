@@ -5,14 +5,6 @@ from src.numba.rotate import rot902d
 from numba import njit
 
 
-Action = namedtuple('Action', ['position', 'action'])
-action_type = np.dtype([('position', (np.int, 3)), ('op', np.int)])
-
-Perspective = namedtuple('Perspective', ['perspective', 'position'])
-
-Transition = namedtuple('Transition',
-                        ['state', 'action', 'reward', 'next_state', 'terminal'])
-
 @njit
 def shift_state(row, col, previous_state, state, grid_shift):
     previous_perspective = roll3dAxis1(previous_state, grid_shift-row)
