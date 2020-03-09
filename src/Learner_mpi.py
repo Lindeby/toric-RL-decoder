@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
+from multiprocessing import Process, Queue
+
 # other
 import numpy as np
 import gym
@@ -13,7 +15,7 @@ import gym
 from src.util_learner import predictMaxOptimized, dataToBatch
 from src.evaluation import evaluate
 from src.ReplayMemory import PrioritizedReplayMemory
-
+from src.IO_mpi import io
 from src.nn.torch.NN import NN_11, NN_17
 
 from copy import deepcopy
@@ -37,15 +39,22 @@ def learner(args, memory_args):
     synchronize = args["synchronize"]
 
     world_size = base_comm.Get_size()
-
-
-    #Memory
-    memory_capacity = memory_args["capacity"]
-    memory_alpha = memory_args["alpha"]
-    memory_beta = memory_args["beta"]
-    replay_size_before_sampling = memory_args["replay_size_before_sampling"]
     
-    replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
+    learner_io_queue = Queue()
+    io_learner_queue = Queue() 
+    con_learner = Pipe(duplex=False)
+    memory_args["con_learner"] = con_learner
+    memory_args["learner_io_queue"] = learner_io_queue
+    memory_args["io_learner_queue"] = io_learner_queue
+    memory_args["mpi_base_comm"] = base_comm
+    memory_args["mpi_learner_rank"] = learner_rank
+    
+    io_process = Process(target=io, args=memory_args)
+    io_process.start()
+
+
+
+    
     
 
     # Init policy net
@@ -66,7 +75,7 @@ def learner(args, memory_args):
     vector_to_parameters(params, target_net.parameters())
     w = params.detach().to('cpu')
     msg = ("weights", w)
-    base_comm.bcast(msg, root=learner_rank)
+    learner_io_queue.put(msg)
     print("Learner done sending inital weights")
     
     # define criterion and optimizer
@@ -81,30 +90,6 @@ def learner(args, memory_args):
     push_new_weights = 0
 
 
-    
-    while replay_memory.filled_size() < replay_size_before_sampling:
-
-        params = parameters_to_vector(policy_net.parameters())
-        # update policy network
-        vector_to_parameters(params, target_net.parameters())
-        target_net.to(device) # dont know if this is needed
-        # broadcast weights
-        w = params.detach().to('cpu')
-        msg = ("weights", w)
-        base_comm.bcast(msg, root=learner_rank)
-        # gather transitions from actors
-        actor_transitions = []
-        actor_transitions = base_comm.gather(actor_transitions, root = learner_rank)
-        # save transitions in replay memory
-        for a in range(0, world_size):
-            if a == learner_rank:
-                continue
-            a_transitions = actor_transitions[a]
-            
-            for i in range(len(a_transitions)):
-                replay_memory.save(a_transitions[i][0], a_transitions[i][1])
-
-    print("Replay memory enough transitions start training") 
          
     t = None
     # Start training
@@ -186,7 +171,7 @@ def learner(args, memory_args):
     base_comm.bcast(msg, root=learner_rank)
     save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
-
+    io_process.join() 
     stop_time = time.time()
     elapsed_time = stop_time - start_time 
     print("elapsed time: ",elapsed_time)
