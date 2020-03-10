@@ -14,6 +14,8 @@ from src.util_learner import predictMaxOptimized, dataToBatch
 from src.evaluation import evaluate
 from src.nn.torch.NN import NN_11, NN_17
 
+from queue import Empty
+
 from copy import deepcopy
 
 import time
@@ -34,7 +36,9 @@ def learner(args):
 
     learner_io_queue = args["learner_io_queue"]
     io_learner_queue = args["io_learner_queue"]
-    con_io = args["con_io"]
+    pipe_learner_io = args["pipe_learner_io"]
+    
+    
     
 
     # Init policy net
@@ -81,7 +85,6 @@ def learner(args):
             break
         
         # Synchronisation 
-        # - Gather transitions from actors
         # - Update policy network
         # - Send new weights to actors
         if t % synchronize == 0:
@@ -98,7 +101,6 @@ def learner(args):
             learner_io_queue.put(msg)
 
         
-        print("io_learner size: ",io_learner_queue.qsize())
         data = io_learner_queue.get()
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
@@ -138,12 +140,24 @@ def learner(args):
     
     # training done
     
-    msg = ("terminate", None)
+    msg = ("prep_terminate", None)
     learner_io_queue.put(msg)
     save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
-    con_io.recv()
-    learner_io_queue.close()
+        
+    pipe_learner_io.recv()
+    print("IO acc")
+    try:
+        while True:
+           io_learner_queue.get_nowait()
+    except Empty:
+        pass 
+    io_learner_queue.close()
+    msg = ("terminate", None)
+    pipe_learner_io.send(msg) 
+    print("learner sent terminate to io")
+    pipe_learner_io.recv()
+    print("learner recived acc form io terminate now")
     learner_io_queue.close()
     stop_time = time.time()
     elapsed_time = stop_time - start_time 

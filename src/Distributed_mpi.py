@@ -3,11 +3,12 @@ import torch
 from src.nn.torch.ResNet import ResNet18
 from src.nn.torch.NN import NN_11, NN_17
 from src.Actor_mpi import actor
-from src.Learner_mpi import learner
+from src.IO_mpi import io
 from src.util_actor import calculateEpsilon
 import numpy as np
 
 from datetime import datetime
+
 
 def start_distributed_mpi():
 
@@ -43,6 +44,7 @@ def start_distributed_mpi():
     replay_memory_alpha = 0.6
     replay_memory_beta = 0.4
     replay_memory_size_before_sampeling = 100#replay_memory_size * 0.05
+    replay_memory_batch_in_queue_limit = 10 #number of batches in queue to learner
     
     # Shared
     batch_size = 32
@@ -93,8 +95,6 @@ def start_distributed_mpi():
             "env"                           :env,
             "env_config"                    :env_config,
             "synchronize"                   :learner_synchronize,
-            "mpi_base_comm"                 :base_comm,
-            "mpi_learner_rank"              :learner_rank,
             "job_max_time"                  :learner_job_max_time,
             "save_date"                     :learner_save_date
         }
@@ -106,10 +106,13 @@ def start_distributed_mpi():
             "alpha"                             :replay_memory_alpha,
             "beta"                              :replay_memory_beta,
             "batch_size"                        :batch_size,
+            "mpi_base_comm"                 :base_comm,
+            "mpi_learner_rank"              :learner_rank,
+            "batch_in_queue_limit"              :replay_memory_batch_in_queue_limit,
             "replay_size_before_sampling"       :replay_memory_size_before_sampeling if not (replay_memory_size_before_sampeling is None) else min(batch_size, int(replay_memory_size*0.1)),
         }
     
-        learner(learner_args, mem_args)
+        io(mem_args, learner_args)
               
     # Actor
     else:
