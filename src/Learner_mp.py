@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
+from torch.utils.tensorboard import SummaryWriter
 
 # other
 import numpy as np
@@ -20,8 +21,15 @@ from queue import Empty
 from copy import deepcopy
 import time
 
+
+
 def learner(args):
     start_time = time.time() 
+
+    # Tensorboard
+    tb = SummaryWriter(log_dir="runs/" + args["save_date"]+"_learner", filename_suffix="_learner")
+    tb_update = 50
+
     train_steps = args["train_steps"]
     discount_factor = args["discount_factor"]
     batch_size = args["batch_size"]
@@ -68,10 +76,14 @@ def learner(args):
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
     
+    wait_time = 0
+    iter_time = 0
 
     # Start training
     print("Learner: starting training loop.")
     for t in range(train_steps):
+        print("Learner timestep {}".format(t))
+        s0  = time.time()
         # Time guard
         if time.time() - start_time > args["job_max_time"]:
             print("Learner: time exceeded, aborting...")
@@ -94,8 +106,10 @@ def learner(args):
             print("Learner: done.")
 
 
-        
+        s1 = time.time()
         data = io_learner_queue.get()
+        e1 = time.time()
+        wait_time += e1 - s1
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
         policy_net.train()
@@ -130,9 +144,20 @@ def learner(args):
         # update priorities in replay_memory
         p_update = (indices, priorities)
         msg = ("priorities", p_update)
-        learner_io_queue.put(msg) 
+        learner_io_queue.put(msg)
+
+        e0 = time.time()
+        iter_time += e0 - s0
+
+        if t % tb_update == 0:
+            tb.add_scalar('Time/Avg_Wait_for_Transitions', wait_time/tb_update, t)
+            tb.add_scalar('Time/Avg_Iteration_Time', iter_time/tb_update, t)
+            iter_time = 0
+            wait_time = 0
+
     
     # training done
+    tb.close()
     msg = ("prep_terminate", None)
     print("Learner: sending {} to IO.".format(msg[0]))
     learner_io_queue.put(msg)

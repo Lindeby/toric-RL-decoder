@@ -3,9 +3,17 @@ from queue import Empty
 import time
 import multiprocessing as mp
 from src.Learner_mpi import learner
+from torch.utils.tensorboard import SummaryWriter
+
 
 def io(memory_args):
     
+
+    tb = SummaryWriter(log_dir="runs/" + memory_args["save_date"]+"_IO", filename_suffix="_IO")
+    t0 = time.time()
+    iteration_count = 0
+    itr_time = 0
+
     memory_capacity = memory_args["capacity"]
     memory_alpha = memory_args["alpha"]
     memory_beta = memory_args["beta"]
@@ -45,16 +53,15 @@ def io(memory_args):
         send_to_actors(msg) 
 
     while(True):
-        
+        s0 = time.time()
          # Send new weights if there are new avaliable
         if actors_current_network_id < latest_network_id:
             msg = ("weights", network)
             send_to_actors(msg)
             actors_current_network_id = latest_network_id
-             
+            tb.add_scalar('Time/Policy Network Update from IO to Actors', time.time()-t0)
 
          # empty queue of transtions from actors
-
         while(actor_io_queue.empty() == False):
             transitions = actor_io_queue.get()
 
@@ -100,8 +107,18 @@ def io(memory_args):
                 terminate = True
                 break      
         if terminate:
-             break  
+            break  
+        
+        e0 = time.time()
+        itr_time += e0 - s0
+        iteration_count += 1
+        if iteration_count >= 100:
+            tb.add_scalar('Time/Avg_Itr_Time_IO', itr_time/iteration_count)
+            iteration_count = 0
+            itr_time = 0
+
     
+    tb.close()
     print("IO: clearing any transitions from actors.")
     try:
         while True:
