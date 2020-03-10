@@ -1,4 +1,3 @@
-import torch
 from src.nn.torch.ResNet import ResNet18
 from src.nn.torch.NN import NN_11, NN_17
 from src.Actor_mp import actor
@@ -15,10 +14,8 @@ def start_distributed_mp():
 
     # Setup
     
-    
-    
     # Learner specific
-    learner_training_steps = 10000000
+    learner_training_steps = 1000000
     learner_learning_rate = 0.00025
     learner_policy_update = 100
     learner_optimizer = 'Adam'
@@ -33,7 +30,6 @@ def start_distributed_mp():
     actor_size_local_memory_buffer = 10
     actor_beta = 1 
     actor_device = 'cpu'
-    actor_n_step = 1
     actor_no_envs = 2           #number of envs/actor
     actor_no_actors = 1
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
@@ -47,16 +43,16 @@ def start_distributed_mp():
     
     # Shared
     batch_size = 32
-    transition_priorities_discount_factor = 0.95
+    discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size": 9,
+    env_config = {  "size": 3,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
     #model = ResNet18
     model = NN_11
     model_config = {"system_size": env_config["size"],
-                    "number_of_actions": 3
+                    "number_of_actions": env_config["size"]
                     }
     
     #Comm setup 
@@ -82,7 +78,7 @@ def start_distributed_mp():
         "batch_size"                    :batch_size,
         "learning_rate"                 :learner_learning_rate,
         "policy_update"                 :learner_policy_update,
-        "discount_factor"               :transition_priorities_discount_factor,
+        "discount_factor"               :discount_factor,
         "optimizer"                     :learner_optimizer,
         "model"                         :model,
         "model_config"                  :model_config,
@@ -130,8 +126,7 @@ def start_distributed_mp():
         "env"                           :env,
         "device"                        :actor_device,
         "beta"                          :actor_beta,
-        "discount_factor"               :transition_priorities_discount_factor,
-        "n_step"                        :actor_n_step,
+        "discount_factor"               :discount_factor,
         "no_envs"                       :actor_no_envs,
         "actor_io_queue"                :actor_io_queue
     }
@@ -149,16 +144,18 @@ def start_distributed_mp():
     io_process.start()
     #learner_process.start()
     learner(learner_args) 
-
+    print("Training done.")
     for i in range(actor_no_actors):
         actor_process[i].join()
-
+    print("Actors joined.")
     #learner_process.join()
-    io_process.join()
+    # io_process.join()
+    io_process.terminate()
+    print("IO joined.")
     
         
 
 if __name__ == '__main__':
-    mp.set_start_method('spawn')
+    #mp.set_start_method('fork')
     start_distributed_mp()   
     
