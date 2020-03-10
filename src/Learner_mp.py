@@ -28,11 +28,10 @@ def learner(args):
     device = args["device"]
 
     # eval params
-    eval_freq = args["eval_freq"]
     env_config = args["env_config"]
     system_size = env_config["size"]
     grid_shift = int(env_config["size"]/2)
-    synchronize = args["synchronize"]
+    policy_update = args["policy_update"]
 
     learner_io_queue = args["learner_io_queue"]
     io_learner_queue = args["io_learner_queue"]
@@ -81,12 +80,12 @@ def learner(args):
         # Synchronisation 
         # - Update policy network
         # - Send new weights to actors
-        if t % synchronize == 0:
+        if t % policy_update == 0:
             print("Learner: sending new network weights to IO.")
             params = parameters_to_vector(policy_net.parameters())
             # update policy network
             vector_to_parameters(params, target_net.parameters())
-            target_net.to(device) # dont know if this is needed
+            target_net.to(device)
 
             # put new weights in queue to IO
             w = params.detach().to('cpu')
@@ -137,8 +136,8 @@ def learner(args):
     msg = ("prep_terminate", None)
     print("Learner: sending {} to IO.".format(msg[0]))
     learner_io_queue.put(msg)
-    #save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
-    #torch.save(policy_net.state_dict(), save_path)
+    save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
+    torch.save(policy_net.state_dict(), save_path)
     print("Learner: waiting for ACK from IO.")
     pipe_learner_io.recv()
     print("Learner: received ACK.")

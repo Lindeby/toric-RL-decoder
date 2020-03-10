@@ -20,26 +20,23 @@ def start_distributed_mp():
     learner_policy_update = 100
     learner_optimizer = 'Adam'
     learner_device = 'cuda'
-    learner_eval_freq = 100
-    learner_synchronize = 50
     learner_job_max_time =  200#60*3 -2 #2 hours 58min
     learner_save_date = datetime.now().strftime("%d_%b_%Y_%H_%M_%S") 
    
     # Actor specific
-    actor_max_actions_per_episode = 25 
-    actor_size_local_memory_buffer = 10
-    actor_beta = 1 
+    actor_max_actions_per_episode = 75 
+    actor_size_local_memory_buffer = 100
     actor_device = 'cpu'
     actor_no_envs = 2           #number of envs/actor
-    actor_no_actors = 1
+    actor_no_actors = 2
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     
     # Replay Memory specific
-    replay_memory_size = 1000000 
+    replay_memory_size = 1000000
     replay_memory_alpha = 0.6
     replay_memory_beta = 0.4
-    replay_memory_size_before_sampeling = 100#replay_memory_size * 0.05
-    replay_memory_batch_in_queue_limit = 10 #number of batches in queue to learner
+    replay_memory_size_before_sampeling = 50000#replay_memory_size * 0.05
+    replay_memory_batch_in_queue_limit = 2 #number of batches in queue to learner
     
     # Shared
     batch_size = 32
@@ -83,10 +80,8 @@ def start_distributed_mp():
         "model"                         :model,
         "model_config"                  :model_config,
         "device"                        :learner_device,
-        "eval_freq"                     :learner_eval_freq,
         "env"                           :env,
         "env_config"                    :env_config,
-        "synchronize"                   :learner_synchronize,
         "job_max_time"                  :learner_job_max_time,
         "save_date"                     :learner_save_date,
         "learner_io_queue"              :learner_io_queue,
@@ -125,7 +120,6 @@ def start_distributed_mp():
         "model_config"                  :model_config,
         "env"                           :env,
         "device"                        :actor_device,
-        "beta"                          :actor_beta,
         "discount_factor"               :discount_factor,
         "no_envs"                       :actor_no_envs,
         "actor_io_queue"                :actor_io_queue
