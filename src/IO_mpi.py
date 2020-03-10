@@ -1,21 +1,35 @@
 from src.ReplayMemory import PrioritizedReplayMemory
 from queue import Empty
 import time
+import multiprocessing as mp
+from multiprocessing import Process, Queue, Pipe
+from src.Learner_mpi import learner
 
-def io(memory_args):
+def io(memory_args, learner_args):
     
     memory_capacity = memory_args["capacity"]
     memory_alpha = memory_args["alpha"]
     memory_beta = memory_args["beta"]
     replay_size_before_sampling = memory_args["replay_size_before_sampling"]
-    learner_io_queue = memory_args["learner_io_queue"]
-    io_learner_queue = memory_args["io_learner_queue"]
     base_comm = memory_args["mpi_base_comm"]
     learner_rank = memory_args["mpi_learner_rank"] 
     batch_in_queue_limit = memory_args["batch_in_queue_limit"]
     batch_size = memory_args["batch_size"]
-    con_larner = memory_args["con_learner"]
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
+
+    
+     
+    ctx = mp.get_context('spawn')
+    learner_io_queue = ctx.Queue()
+    io_learner_queue = ctx.Queue() 
+    con_io, con_learner = ctx.Pipe(duplex=True)
+    
+    learner_args["learner_io_queue"] = learner_io_queue
+    learner_args["io_learner_queue"] = io_learner_queue
+    learner_args["con_io"] = con_io
+     
+    learner_process = ctx.Process(target=learner, args=(learner_args,))
+    learner_process.start()
 
     world_size = base_comm.Get_size()
 
@@ -106,11 +120,6 @@ def io(memory_args):
     print("IO done")
     con_learner.send("done")
 
-   
-                
-    
-        
+    learner_process.join() 
 
-        
-         
-        
+   

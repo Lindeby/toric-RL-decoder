@@ -5,8 +5,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
-from multiprocessing import Process, Queue, Pipe
-
 # other
 import numpy as np
 import gym
@@ -14,15 +12,13 @@ import gym
 # from file
 from src.util_learner import predictMaxOptimized, dataToBatch
 from src.evaluation import evaluate
-from src.ReplayMemory import PrioritizedReplayMemory
-from src.IO_mpi import io
 from src.nn.torch.NN import NN_11, NN_17
 
 from copy import deepcopy
 
 import time
 
-def learner(args, memory_args):
+def learner(args):
     start_time = time.time() 
     train_steps = args["train_steps"]
     batch_size = args["batch_size"]
@@ -31,24 +27,15 @@ def learner(args, memory_args):
     discount_factor = args["discount_factor"]
     device = args["device"]
     eval_freq = args["eval_freq"]
-    base_comm = args["mpi_base_comm"]
-    learner_rank = args["mpi_learner_rank"]
     env_config = args["env_config"]
     system_size = env_config["size"]
     grid_shift = int(env_config["size"]/2)
     synchronize = args["synchronize"]
 
-    learner_io_queue = Queue()
-    io_learner_queue = Queue() 
-    con_io_r, con_learner_w = Pipe(duplex=False)
-    memory_args["con_learner"] = con_learner_w
-    memory_args["learner_io_queue"] = learner_io_queue
-    memory_args["io_learner_queue"] = io_learner_queue
-    memory_args["mpi_base_comm"] = base_comm
-    memory_args["mpi_learner_rank"] = learner_rank
+    learner_io_queue = args["learner_io_queue"]
+    io_learner_queue = args["io_learner_queue"]
+    con_io = args["con_io"]
     
-    io_process = Process(target=io, args=(memory_args,))
-    io_process.start()
 
     # Init policy net
     policy_class = args["model"]
@@ -155,10 +142,9 @@ def learner(args, memory_args):
     learner_io_queue.put(msg)
     save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
-    con_io_r.recv()
+    con_io.recv()
     learner_io_queue.close()
     learner_io_queue.close()
-    io_process.join() 
     stop_time = time.time()
     elapsed_time = stop_time - start_time 
     print("elapsed time: ",elapsed_time)
