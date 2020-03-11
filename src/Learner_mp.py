@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch.utils.tensorboard import SummaryWriter
+from torch import from_numpy
 
 # other
 import numpy as np
@@ -17,23 +18,16 @@ from src.evaluation import evaluate
 # Quality of life
 from src.nn.torch.NN import NN_11, NN_17
 
-from queue import Empty
-from copy import deepcopy
 import time
-
 
 
 def learner(args):
     start_time = time.time() 
 
-    # Tensorboard
-    tb = SummaryWriter(log_dir="runs/" + args["save_date"]+"_learner", filename_suffix="_learner")
-    tb_update = 50
-
-    train_steps = args["train_steps"]
+    train_steps     = args["train_steps"]
     discount_factor = args["discount_factor"]
-    batch_size = args["batch_size"]
-    device = args["device"]
+    batch_size      = args["batch_size"]
+    device          = args["device"]
 
     # eval params
     env_config = args["env_config"]
@@ -41,75 +35,66 @@ def learner(args):
     grid_shift = int(env_config["size"]/2)
     policy_update = args["policy_update"]
 
-    learner_io_queue = args["learner_io_queue"]
-    io_learner_queue = args["io_learner_queue"]
-    pipe_learner_io = args["pipe_learner_io"]
+    # Comms
+    learner_io_queue        = args["learner_io_queue"]
+    io_learner_queue        = args["io_learner_queue"]
+    shared_mem_weights      = args["shared_mem_weights"]
+    shared_mem_weight_id    = args["shared_mem_weight_id"]
+
     
-    # Init policy net
-    policy_class = args["model"]
-    policy_config = args["model_config"] 
+    # Init networks
+    policy_class    = args["model"]
+    policy_config   = args["model_config"] 
+    model_no_params = args["model_no_params"]
     if policy_class == NN_11 or policy_class == NN_17:
         policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], device)
         target_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], device) 
     else:
         policy_net = policy_class()
         target_net = policy_class()
-
+    
+    # Load initial parameters
+    weights = np.empty(model_no_params)
+    with shared_mem_weights.get_lock():
+        reader = np.frombuffer(shared_mem_weights.get_obj())
+        np.copyto(weights, reader)
+    vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), policy_net.parameters())
+    vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), target_net.parameters())
     policy_net.to(device)
     target_net.to(device)
     
-    # copy policy params to target
-    params = parameters_to_vector(policy_net.parameters()) 
-    vector_to_parameters(params, target_net.parameters())
-
-    w = params.detach().to('cpu')
-    msg = ("weights", w)
-    print("Learner: attempting to send initial network weights to IO.")
-    learner_io_queue.put(msg)
-    print("Learner: done.")
     
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
+    optimizer = None
     if args["optimizer"] == 'RMSprop':
         optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
-    
-    wait_time = 0
-    iter_time = 0
 
     # Start training
     print("Learner: starting training loop.")
     for t in range(train_steps):
-        print("Learner timestep {}".format(t))
-        s0  = time.time()
+        # print("Learner timestep: {}".format(t))
         # Time guard
         if time.time() - start_time > args["job_max_time"]:
             print("Learner: time exceeded, aborting...")
             break
         
-        # Synchronisation 
-        # - Update policy network
-        # - Send new weights to actors
-        if t % policy_update == 0:
-            print("Learner: sending new network weights to IO.")
-            params = parameters_to_vector(policy_net.parameters())
-            # update policy network
-            vector_to_parameters(params, target_net.parameters())
+        # update target and update shared memory with new weights
+        if t % policy_update == 0 and t != 0:
+            params = parameters_to_vector(policy_net.parameters()) # get policy weights
+            vector_to_parameters(params, target_net.parameters())  # load policy weights to target
             target_net.to(device)
 
-            # put new weights in queue to IO
-            w = params.detach().to('cpu')
-            msg = ("weights", w)
-            learner_io_queue.put(msg)
-            print("Learner: done.")
+            # update shared memory with new weights
+            with shared_mem_weights.get_lock():
+                shared_mem_weights[:]        = params.detach().cpu().numpy()
+                shared_mem_weight_id.value += 1
 
 
-        s1 = time.time()
         data = io_learner_queue.get()
-        e1 = time.time()
-        wait_time += e1 - s1
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
         policy_net.train()
@@ -146,40 +131,9 @@ def learner(args):
         msg = ("priorities", p_update)
         learner_io_queue.put(msg)
 
-        e0 = time.time()
-        iter_time += e0 - s0
-
-        if t % tb_update == 0:
-            tb.add_scalar('Time/Avg_Wait_for_Transitions', wait_time/tb_update, t)
-            tb.add_scalar('Time/Avg_Iteration_Time', iter_time/tb_update, t)
-            iter_time = 0
-            wait_time = 0
-
     
     # training done
-    tb.close()
-    msg = ("prep_terminate", None)
-    print("Learner: sending {} to IO.".format(msg[0]))
-    learner_io_queue.put(msg)
-    save_path = "network/mpi/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
+    # save network
+    save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
-    print("Learner: waiting for ACK from IO.")
-    pipe_learner_io.recv()
-    print("Learner: received ACK.")
-    try:
-        while True:
-           io_learner_queue.get_nowait()
-    except Empty:
-        pass
-    io_learner_queue.close()
-    msg = ("terminate", None)
-    print("Learner: sending {} to IO.".format(msg[0]))
-    pipe_learner_io.send(msg) 
-    pipe_learner_io.recv()
-    print("Learner: received ACK from IO.")
-    learner_io_queue.close()
-    stop_time = time.time()
-    elapsed_time = stop_time - start_time 
-    print("elapsed time: ",elapsed_time)
-    print("learning steps: ",t)
-    print("Learner: terminated.")
+    print("Saved network to {}".format(save_path))

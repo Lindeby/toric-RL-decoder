@@ -62,7 +62,6 @@ if __name__ == "__main__":
     Y.value = 0
 
     X_np = np.frombuffer(X.get_obj())
-
     np.copyto(X_np, params)
 
     args = {    "X":X,
