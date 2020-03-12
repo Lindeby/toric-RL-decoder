@@ -159,52 +159,53 @@ if __name__ == "__main__":
 
     ################## REAL TEST #####################
     """
-    This file tests how long time it takes to generate a fixed number of transitions using
-    increasing amount of actors. The amonut of environments are fixed to 10 and divided
-    each actor controls a subset of the environments.
+    This file runs a test to find the best combination of actors and env per actor on the cluster.
     """
 
 
-    TOTAL_TRANS_TO_GEN = 1000
-    logged_times = []
-    for a in range(10):
-        NO_ACTORS = a+1
-        NO_ENVS = 10-a
-        TRANSITIONS_TO_GENERATE_PER_ACTOR = int(TOTAL_TRANS_TO_GEN/NO_ACTORS/NO_ENVS)
+    TOTAL_TRANS_TO_GEN = 5000
+    logged_times = np.empty(32,200)
+    for a in range(32):
+        for e in range(200):
+            NO_ACTORS = a+1
+            NO_ENVS = e+1
+            TRANSITIONS_TO_GENERATE_PER_ACTOR = int(TOTAL_TRANS_TO_GEN/NO_ACTORS/NO_ENVS)
+            
+            env_config = {  
+                "size": 3,
+                "min_qubit_errors": 0,
+                "p_error": 0.1
+            }
+
+            args = {
+                "model": ResNet18
+                , "device": 'cpu'
+                , "env": 'toric-code-v0'
+                , "env_config": env_config
+                , "epsilon": [0.3] * NO_ENVS
+                , "discount_factor" : 0.95
+                , "max_actions_per_episode" : 75
+                , "no_envs": NO_ENVS
+                , "size_local_memory_buffer": TRANSITIONS_TO_GENERATE_PER_ACTOR
+
+            }
+            print("Starting {} actors with {} envs each.".format(NO_ACTORS, NO_ENVS))
+            processes = []
+            start = time.time()
+            for p in range(NO_ACTORS):
+                processes.append(Process(target=actor, args=(args,)))
+                processes[p].start()
+
+            print("Waiting for processes to join...")
+            for p in processes:
+                p.join()
+            end = time.time()
+            elapsed_time = end-start
+            print("To generate {} transitions using {} actors took {} seconds.".format(TOTAL_TRANS_TO_GEN, NO_ACTORS, elapsed_time))
+            logged_times[a, e] = elapsed_time
+
+    
+    np.savetxt('envs_per_actor_result_{}.out'.format(TOTAL_TRANS_TO_GEN), logged_times, delimiter=',')
+    
+
         
-        env_config = {  
-            "size": 3,
-            "min_qubit_errors": 0,
-            "p_error": 0.1
-        }
-
-        args = {
-            "model": ResNet18
-            , "device": 'cpu'
-            , "env": 'toric-code-v0'
-            , "env_config": env_config
-            , "epsilon": [0.3] * NO_ENVS
-            , "discount_factor" : 0.95
-            , "max_actions_per_episode" : 75
-            , "no_envs": NO_ENVS
-            , "size_local_memory_buffer": TRANSITIONS_TO_GENERATE_PER_ACTOR
-
-        }
-        print("Starting {} actors with {} envs each.".format(NO_ACTORS, NO_ENVS))
-        processes = []
-        start = time.time()
-        for p in range(NO_ACTORS):
-            processes.append(Process(target=actor, args=(args,)))
-            processes[p].start()
-
-        print("Waiting for processes to join...")
-        for p in processes:
-            p.join()
-        end = time.time()
-        elapsed_time = end-start
-        print("To generate {} transitions using {} actors took {} seconds.".format(TOTAL_TRANS_TO_GEN, NO_ACTORS, elapsed_time))
-        logged_times.append(elapsed_time)
-
-    
-    
-    np.savetxt('multiple_envs_result_{}.out'.format(TOTAL_TRANS_TO_GEN), logged_times, delimiter=',')
