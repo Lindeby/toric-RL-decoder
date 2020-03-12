@@ -134,7 +134,7 @@ def actor(args):
             if new_weights:
                 new_weights = False
                 vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), model.parameters())
-                epsilon = np.maximum(epsilon - epsilon_delta, epsilon_delta)
+                epsilon = np.maximum(epsilon - epsilon_delta, epsilon_final)
 
             # compute priorities
             priorities = computePrioritiesParallel(local_buffer_A[:,:-1],
