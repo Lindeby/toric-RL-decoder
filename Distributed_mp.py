@@ -28,7 +28,7 @@ def start_distributed_mp():
     actor_max_actions_per_episode = 75 
     actor_size_local_memory_buffer = 10
     actor_device = 'cpu'
-    actor_no_envs = 10           #number of envs/actor
+    actor_no_envs = 100           #number of envs/actor
     actor_no_actors = 1
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     epsilon_delta = 0.005
