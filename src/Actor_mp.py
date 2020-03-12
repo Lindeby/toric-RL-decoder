@@ -24,7 +24,9 @@ def actor(args):
     no_envs         = args["no_envs"]
     device          = args["device"]
     discount_factor = args["discount_factor"]
-    epsilon         = np.array(args["epsilon"])
+    epsilon_final   = np.array(args["epsilon_final"])
+    epsilon         = np.ones(len(epsilon_final))
+    epsilon_delta   = args["epsilon_delta"]
 
     # env and env params
     env  = gym.make(args["env"], config=args["env_config"])
@@ -123,6 +125,7 @@ def actor(args):
             if new_weights:
                 new_weights = False
                 vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), model.parameters())
+                epsilon = np.maximum(epsilon - epsilon_delta, epsilon_delta)
 
             # compute priorities
             priorities = computePrioritiesParallel(local_buffer_A[:,:-1],

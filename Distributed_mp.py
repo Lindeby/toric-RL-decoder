@@ -31,6 +31,7 @@ def start_distributed_mp():
     actor_no_envs = 2           #number of envs/actor
     actor_no_actors = 1
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
+    epsilon_delta = 0.005
     
     # Replay Memory specific
     replay_memory_size = 1000000
@@ -133,13 +134,14 @@ def start_distributed_mp():
         "no_envs"                       :actor_no_envs,
         "actor_io_queue"                :actor_io_queue,
         "shared_mem_weights"            :shared_mem_weights,
-        "shared_mem_weight_id"          :shared_mem_weight_id
+        "shared_mem_weight_id"          :shared_mem_weight_id,
+        "epsilon_delta"                 :epsilon_delta
     }
 
     io_process = mp.Process(target=io, args=(mem_args,))
     actor_process = []    
     for i in range(actor_no_actors):
-        actor_args["epsilon"] = epsilon[i * actor_no_envs : i * actor_no_envs + actor_no_envs]
+        actor_args["epsilon_final"] = epsilon[i * actor_no_envs : i * actor_no_envs + actor_no_envs]
         actor_process.append(mp.Process(target=actor, args=(actor_args,)))
         actor_process[i].start()
     
