@@ -9,7 +9,7 @@ if __name__ == "__main__":
     
     env_config = {  "size": 3,
                 "min_qubit_errors": 0,
-                "p_error": 0.1
+                "p_error": 0.25
                 }
 
     model_config = {"system_size": env_config["size"],
@@ -24,4 +24,4 @@ if __name__ == "__main__":
     evaluate(model, 'toric-code-v0', env_config, int(env_config["size"]/2), 'cpu', epsilon, num_of_episodes=1,
     num_actions=3, epsilon=0.0, num_of_steps=50, plot_one_episode=True, 
     show_network=False, minimum_nbr_of_qubit_errors=0, 
-    print_Q_values=False, save_prediction=True)
+    print_Q_values=False)
