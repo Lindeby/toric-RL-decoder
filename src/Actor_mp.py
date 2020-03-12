@@ -87,6 +87,7 @@ def actor(args):
     # main loop over training steps
     while True:
         
+        debug = time.time() 
         steps_per_episode += 1    
         
         # select action using epsilon greedy policy
@@ -116,11 +117,6 @@ def actor(args):
         # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:      
             
-            performence_stop = time.time()
-            performence_elapsed = performence_stop - preformence_start
-            performence_transitions = buffer_idx+1 * no_envs
-            print("generating ",performence_transitions/performence_elapsed, "tranistions/s")
-            preformence_start = time.time()
            
              # read new weights from shared memory
 
@@ -144,6 +140,13 @@ def actor(args):
                                                    discount_factor)
 
             to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
+            
+            
+            performence_stop = time.time()
+            performence_elapsed = performence_stop - preformence_start
+            performence_transitions = len(to_send)
+            print("generating ",performence_transitions/performence_elapsed, "tranistions/s")
+            preformence_start = time.time()
 
             # send buffer to learner
             actor_io_queue.put(to_send)
@@ -159,6 +162,8 @@ def actor(args):
             steps_per_episode[idx] = 0
         
         state = next_state
+
+        print("debug time ",time.time()-debug)
 
 
     
