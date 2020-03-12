@@ -158,9 +158,16 @@ if __name__ == "__main__":
 
 
     ################## REAL TEST #####################
+    """
+    This file tests how long time it takes to generate a fixed number of transitions using
+    increasing amount of actors. The amonut of environments are fixed to 10 and divided
+    each actor controls a subset of the environments.
+    """
+
+
     TOTAL_TRANS_TO_GEN = 1000
     logged_times = []
-    for a in range(2):
+    for a in range(10):
         NO_ACTORS = a+1
         NO_ENVS = 10-a
         TRANSITIONS_TO_GENERATE_PER_ACTOR = int(TOTAL_TRANS_TO_GEN/NO_ACTORS/NO_ENVS)
