@@ -15,7 +15,7 @@ from src.numba.util_actor import selectActionBatch
 # Quality of life
 from src.nn.torch.NN import NN_11, NN_17
 from src.EnvSet import EnvSet
-            
+import time            
 
 def actor(args):
      
@@ -76,17 +76,19 @@ def actor(args):
     with shared_mem_weights.get_lock():
         reader = np.frombuffer(shared_mem_weights.get_obj())
         np.copyto(weights, reader)
-    vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), model.parameters())
+    vector_to_parameters(from_numpy(weights).to(device).type(torch.FloatTensor), model.parameters())
     
     model.to(device)
     model.eval()
-
+    
+    preformence_start = time.time()
+    preformence_stop = None
     print("Actor: starting loop.")
     # main loop over training steps
     while True:
         
         steps_per_episode += 1    
-
+        
         # select action using epsilon greedy policy
         action, q_values = selectActionBatch(number_of_actions=no_actions,
                                                 epsilon=epsilon,
@@ -96,7 +98,7 @@ def actor(args):
                                                 model = model,
                                                 device = device)
         next_state, reward, terminal_state, _ = envs.step(action)
-        
+         
         transition = generateTransitionParallel(action,
                                                 reward, 
                                                 state,
@@ -113,18 +115,25 @@ def actor(args):
 
         # If buffer full, send transitions
         if buffer_idx >= size_local_memory_buffer:      
-            # read new weights from shared memory
+            
+            performence_stop = time.time()
+            performence_elapsed = performence_stop - preformence_start
+            performence_transitions = buffer_idx+1 * no_envs
+            print("generating ",performence_transitions/performence_elapsed, "tranistions/s")
+            preformence_start = time.time()
+           
+             # read new weights from shared memory
+
             with shared_mem_weights.get_lock():
                 if current_weight_id < shared_mem_weight_id.value:
                     reader = np.frombuffer(shared_mem_weights.get_obj())
                     np.copyto(weights, reader)
                     current_weight_id = shared_mem_weight_id.value
                     new_weights = True
-            
             # load new weights into model
             if new_weights:
                 new_weights = False
-                vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), model.parameters())
+                vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), model.parameters())
                 epsilon = np.maximum(epsilon - epsilon_delta, epsilon_delta)
 
             # compute priorities
