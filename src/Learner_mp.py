@@ -72,11 +72,13 @@ def learner(args):
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
-
+    
+    preformence_start = time.time()
+    preformence_stop = None
     # Start training
     print("Learner: starting training loop.")
     for t in range(train_steps):
-        # print("Learner timestep: {}".format(t))
+        #print("Learner timestep: {}".format(t))
         # Time guard
         if time.time() - start_time > args["job_max_time"]:
             print("Learner: time exceeded, aborting...")
@@ -84,6 +86,11 @@ def learner(args):
         
         # update target and update shared memory with new weights
         if t % policy_update == 0 and t != 0:
+            performence_stop = time.time()
+            performence_elapsed = performence_stop - preformence_start
+            performence_transitions = policy_update * batch_size
+            print("consuming ",performence_transitions/performence_elapsed, "tranistions/s")
+            preformence_start = time.time()
             params = parameters_to_vector(policy_net.parameters()) # get policy weights
             vector_to_parameters(params, target_net.parameters())  # load policy weights to target
             target_net.to(device)
@@ -93,7 +100,8 @@ def learner(args):
                 shared_mem_weights[:]        = params.detach().cpu().numpy()
                 shared_mem_weight_id.value += 1
 
-
+        if io_learner_queue.qsize == 0:
+            print("Learner waiting")
         data = io_learner_queue.get()
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
@@ -137,3 +145,5 @@ def learner(args):
     save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
     print("Saved network to {}".format(save_path))
+    print("Total trainingsteps: {}".format(t))
+     

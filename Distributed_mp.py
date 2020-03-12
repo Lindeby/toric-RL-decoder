@@ -18,7 +18,7 @@ def start_distributed_mp():
     # Learner specific
     learner_training_steps = 100000
     learner_learning_rate = 0.00025
-    learner_policy_update = 10
+    learner_policy_update = 50
     learner_optimizer = 'Adam'
     learner_device = 'cuda'
     learner_job_max_time =  30#60*3 -2 #2 hours 58min
@@ -28,7 +28,7 @@ def start_distributed_mp():
     actor_max_actions_per_episode = 75 
     actor_size_local_memory_buffer = 10
     actor_device = 'cpu'
-    actor_no_envs = 2           #number of envs/actor
+    actor_no_envs = 10           #number of envs/actor
     actor_no_actors = 1
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     epsilon_delta = 0.005
