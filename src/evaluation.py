@@ -2,13 +2,13 @@ from src.util import load_network, incrementalMean, generatePerspectiveOptimized
 import numpy as np
 from copy import deepcopy
 import random, torch
-import heapq, gym
+import heapq, gym, gym_ToricCode
 
 
 def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error, num_of_episodes=1,
     num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
     show_network=False, minimum_nbr_of_qubit_errors=0, 
-    print_Q_values=False, save_prediction=True):
+    print_Q_values=False):
     """ Evaluates the current policy by running some episodes.
 
     Params
@@ -28,7 +28,6 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     show_network:                   (Bool)      (optional)
     minimum_nbr_of_qubit_errors:    (int)       (optional)
     print_Q_values:                 (Bool)      (optional)
-    save_prediction:                (Bool)      (optional)
 
     Return
     ======
@@ -106,7 +105,7 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                 mean_q_per_p_error = incrementalMean(q_value, mean_q_per_p_error, steps_counter)
                 
                 if plot_one_episode == True and j == 0 and i == 0:
-                    env.plotToricCode(state, 'step_'+str(num_of_steps_per_episode))
+                    env.plotToricCode(state, 'step_-1')#+str(num_of_steps_per_episode))
 
             np.set_printoptions(precision=2, suppress=True)
             theoretical_q_value = compute_theoretical_q_value(energy_toric)
