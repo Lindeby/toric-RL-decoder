@@ -107,19 +107,19 @@ def learner(args):
         # compute target network output
         # target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
         target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
-        
         target_output = target_output.to(device)
 
         # compute loss and update replay memory
         y = batch_reward + ((~batch_terminal).type(torch.float) * discount_factor * target_output)
         y = y.clamp(-100, 100)
         loss = criterion(y, policy_output)
+        optimizer.zero_grad()
+
         loss = weights * loss
         
         # Compute priorities
         priorities = np.absolute(loss.cpu().detach().numpy())
         
-        optimizer.zero_grad()
         loss = loss.mean()
 
         # backpropagate loss
