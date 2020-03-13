@@ -20,13 +20,13 @@ def start_distributed_mp():
     learner_learning_rate = 0.00025
     learner_policy_update = 50
     learner_optimizer = 'Adam'
-    learner_device = 'cuda'
+    learner_device = 'cpu'
     learner_job_max_time =  30#60*3 -2 #2 hours 58min
     learner_save_date = datetime.now().strftime("%d_%b_%Y_%H_%M_%S") 
    
     # Actor specific
     actor_max_actions_per_episode = 75 
-    actor_size_local_memory_buffer = 10
+    actor_size_local_memory_buffer = 2
     actor_device = 'cpu'
     actor_no_envs = 100           #number of envs/actor
     actor_no_actors = 1
@@ -39,9 +39,13 @@ def start_distributed_mp():
     replay_memory_beta = 0.4
     replay_memory_size_before_sampeling = 50
     replay_memory_batch_in_queue_limit = 2 #number of batches in queue to learner
+    log_priority_dist = False
+    log_write_frequency = 50
+    log_priority_sample_max = 100
+    log_priority_sample_interval_size = 0.1
     
     # Shared
-    batch_size = 32
+    batch_size = 1
     discount_factor = 0.95
     env = "toric-code-v0"
     env_config = {  "size": 3,
@@ -114,7 +118,11 @@ def start_distributed_mp():
         "batch_in_queue_limit"              :replay_memory_batch_in_queue_limit,
         "no_actors"                         :actor_no_actors,
         "replay_size_before_sampling"       :replay_memory_size_before_sampeling if not (replay_memory_size_before_sampeling is None) else min(batch_size, int(replay_memory_size*0.1)),
-        "save_date"                         :learner_save_date
+        "save_date"                         :learner_save_date,
+        "log_priority_dist"                 :log_priority_dist,
+        "log_write_frequency"               :log_write_frequency,
+        "log_priority_sample_max"           :log_priority_sample_max,
+        "log_priority_sample_interval_size" :log_priority_sample_interval_size
     }
     
               
