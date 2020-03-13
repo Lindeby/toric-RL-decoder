@@ -31,14 +31,18 @@ def io(memory_args):
     log_count_actor   = 0
     log_count_learner = 0
     start_learning = False
+    total_amout_transitions = 0
     while(True):
 
         # empty queue of transtions from actors
         while(actor_io_queue.empty() == False):
+            
             transitions = actor_io_queue.get()
             for i in range(len(transitions)):
                 t,p = transitions[i]
                 replay_memory.save(t, p)
+                total_amout_transitions +=1
+
                 
                 # log distribution
                 if log_priority_dist:
@@ -73,22 +77,22 @@ def io(memory_args):
                 appendToFile(samples_learner, "data/sample_distribution_learner_" + start_time + ".data")
                 samples_learner = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
 
-
-    
         # empty queue from learner
         terminate = False
         while(not learner_io_queue.empty()):
          
             msg, item = learner_io_queue.get()
+             
             if msg == "priorities":
                 # Update priorities
                 indices, priorities = item
-                replay_memory.priority_update(indices, priorities)
-                 
+                replay_memory.priority_update(indices, priorities)            
+            elif msg == "terminate":
+                print("Totel amount of generated transitions: ",total_amout_transitions)
+
+
 
 def appendToFile(data, path, timestamp=True):
     dt = datetime.now().strftime("%H:%M:%S") 
     with open(path, 'a') as f:
         f.write(dt + ":::::" + " ".join(map(str, data)) + "\n")
-
-

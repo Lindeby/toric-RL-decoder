@@ -142,6 +142,8 @@ def learner(args):
     
     # training done
     # save network
+    msg = ("terminate", None)
+    learner_io_queue.put(msg)
     save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
     torch.save(policy_net.state_dict(), save_path)
     print("Saved network to {}".format(save_path))
