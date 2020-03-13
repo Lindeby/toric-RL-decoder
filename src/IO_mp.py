@@ -24,6 +24,16 @@ def io(memory_args):
         samples_actor   = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
         samples_learner = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
         start_time = datetime.now().strftime("%d_%b_%Y-%H:%M:%S")
+        actor_path = "data/sample_distribution_actor_" + start_time + ".data"
+        learner_path = "data/sample_distribution_learner_" + start_time + ".data"
+
+        header = "HEADER:::::min={}, max={}, interval={}".format(0, log_priority_sample_max, log_priority_sample_interval_size)
+
+        # write info in header
+        appendToFile(header, actor_path  , timestamp=False)
+        appendToFile(header, learner_path, timestamp=False)
+
+
 
 
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
@@ -52,7 +62,7 @@ def io(memory_args):
             log_count_actor += 1
             if log_priority_dist and log_count_actor >= log_write_frequency:
                 log_count_actor = 0
-                appendToFile(samples_actor, "data/sample_distribution_actor_" + start_time + ".data")
+                appendToFile(samples_actor, actor_path)
                 samples_actor = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
 
             
@@ -74,7 +84,7 @@ def io(memory_args):
             log_count_learner += 1
             if log_priority_dist and log_count_learner >= log_write_frequency:
                 log_count_learner = 0 
-                appendToFile(samples_learner, "data/sample_distribution_learner_" + start_time + ".data")
+                appendToFile(samples_learner, learner_path)
                 samples_learner = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
 
         # empty queue from learner
