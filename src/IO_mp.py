@@ -12,20 +12,23 @@ def io(memory_args):
     learner_io_queue            = memory_args["learner_io_queue"]
     io_learner_queue            = memory_args["io_learner_queue"]
     actor_io_queue              = memory_args["actor_io_queue"]
+    
 
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
 
     start_learning = False
-
+    total_amout_transitions = 0
     while(True):
 
         # empty queue of transtions from actors
         while(actor_io_queue.empty() == False):
+            
             transitions = actor_io_queue.get()
 
             for i in range(len(transitions)):
                 t,p = transitions[i]
                 replay_memory.save(t, p)
+                total_amout_transitions +=1
             
          
          # Sample sample transitions until there are x in queue to learner
@@ -42,8 +45,11 @@ def io(memory_args):
         while(not learner_io_queue.empty()):
          
             msg, item = learner_io_queue.get()
+             
             if msg == "priorities":
                 # Update priorities
                 indices, priorities = item
                 replay_memory.priority_update(indices, priorities)
-                 
+            
+            elif msg == "terminate":
+                print("Totel amount of generated transitions: ",total_amout_transitions)

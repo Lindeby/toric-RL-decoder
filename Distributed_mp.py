@@ -10,6 +10,7 @@ import multiprocessing as mp
 from multiprocessing.sharedctypes import Array, Value
 from torch.nn.utils import parameters_to_vector
 from datetime import datetime
+import time
 
 def start_distributed_mp():
 
@@ -27,11 +28,13 @@ def start_distributed_mp():
     # Actor specific
     actor_max_actions_per_episode = 75 
     actor_size_local_memory_buffer = 10
-    actor_device = 'cpu'
     actor_no_envs = 100           #number of envs/actor
-    actor_no_actors = 1
+    no_cuda_actors = 1 
+    no_cpu_actors = 0 
+    actor_no_actors = no_cuda_actors + no_cpu_actors
     epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     epsilon_delta = 0.005
+
     
     # Replay Memory specific
     replay_memory_size = 1000000
@@ -44,7 +47,7 @@ def start_distributed_mp():
     batch_size = 32
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size": 3,
+    env_config = {  "size":3,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
@@ -141,12 +144,19 @@ def start_distributed_mp():
     io_process = mp.Process(target=io, args=(mem_args,))
     actor_process = []    
     for i in range(actor_no_actors):
+        #if i < no_cuda_actors :
+        #    actor_args["device"] = 'cuda'
+        #else: 
+        #    actor_args["device"] = 'cpu'
+        #
+        actor_args["id"] = i
         actor_args["epsilon_final"] = epsilon[i * actor_no_envs : i * actor_no_envs + actor_no_envs]
         actor_process.append(mp.Process(target=actor, args=(actor_args,)))
         actor_process[i].start()
     
     io_process.start()
     learner(learner_args) 
+    time.sleep(2)
     print("Training done.")
     for i in range(actor_no_actors):
         actor_process[i].terminate()

@@ -27,6 +27,7 @@ def actor(args):
     epsilon_final   = np.array(args["epsilon_final"])
     epsilon         = np.ones(len(epsilon_final))
     epsilon_delta   = args["epsilon_delta"]
+    actor_id        = args["id"]
 
     # env and env params
     env  = gym.make(args["env"], config=args["env_config"])
@@ -83,11 +84,10 @@ def actor(args):
     
     preformence_start = time.time()
     preformence_stop = None
-    print("Actor: starting loop.")
+    print("Actor ",actor_id,": starting loop device: ",device)
     # main loop over training steps
     while True:
         
-        debug = time.time() 
         steps_per_episode += 1    
         
         # select action using epsilon greedy policy
@@ -145,7 +145,7 @@ def actor(args):
             performence_stop = time.time()
             performence_elapsed = performence_stop - preformence_start
             performence_transitions = len(to_send)
-            print("generating ",performence_transitions/performence_elapsed, "tranistions/s")
+            print("Actor ",actor_id," generating ",performence_transitions/performence_elapsed, "tranistions/s")
             preformence_start = time.time()
 
             # send buffer to learner
@@ -163,7 +163,6 @@ def actor(args):
         
         state = next_state
 
-        print("debug time ",time.time()-debug)
 
 
     
