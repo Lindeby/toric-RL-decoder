@@ -120,7 +120,7 @@ class PrioritizedReplayMemory(object):
         
         weights = [ i/max(weights) for i in weights] # Normalize for stability
         
-        return out, weights, indices
+        return out, weights, indices, priorities
 
     def priority_update(self, indices, priorities):
         """ The methods update samples's priority.
