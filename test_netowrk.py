@@ -35,7 +35,7 @@ if NN == NN_11 or NN == NN_17:
 else:
     model = NN()
 
-model.load_state_dict(torch.load('network/Size_3_NN_11_11_Mar_2020_22_13_15.pt', map_location=torch.device('cpu')))    
+model.load_state_dict(torch.load('Size_3_NN_11_14_Mar_2020_04_39_05.pt', map_location=torch.device('cpu')))    
 model.to(device)
 model.eval()
 
@@ -66,9 +66,16 @@ while True:
 
     next_state, reward, terminal_state, _ = env.step(action)
 
-
+    
     if terminal_state or steps_per_episode > max_actions:
+        if terminal_state:
+            print("Solved")
+        else:
+            print("to many actions")
         # reset env
+         
+        env.plotToricCode(state, "eval") 
+        input("Press key to reset") 
         state = env.reset()
         steps_per_episode = 0
     else:
