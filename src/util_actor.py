@@ -307,7 +307,7 @@ def calculateEpsilon(e, alpha, num):
     """
     epsilons = np.zeros(num)
     for i in range(num):
-        epsilons[i] = e**(1+(i/(num-1))*alpha)
+        epsilons[i] = e**(1+(i/(max(1,num-1)))*alpha)
 
     return epsilons
 

@@ -4,8 +4,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
-# from torch.utils.tensorboard import SummaryWriter
 from torch import from_numpy
+could_import_tb=True
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    could_import_tb=False
+    print("Could not import tensorboard. No logging will occur.")
 
 # other
 import numpy as np
@@ -29,11 +34,20 @@ def learner(args):
     batch_size      = args["batch_size"]
     device          = args["device"]
 
+    # params
+    env_config      = args["env_config"]
+    system_size     = env_config["size"]
+    grid_shift      = int(env_config["size"]/2)
+    policy_update   = args["policy_update"]
+    save_date       = args["save_date"]
+
     # eval params
-    env_config = args["env_config"]
-    system_size = env_config["size"]
-    grid_shift = int(env_config["size"]/2)
-    policy_update = args["policy_update"]
+    eval_p_errors       = args["learner_eval_p_errors"]
+    eval_no_episodes    = args["learner_eval_no_episodes"]
+    eval_freq           = args["learner_eval_freq"]
+    count_to_eval       = 0
+    if eval_freq != -1 and could_import_tb:
+        tb = SummaryWriter("runs/{}/Learner/".format(save_date))
 
     # Comms
     learner_io_queue        = args["learner_io_queue"]
@@ -73,8 +87,8 @@ def learner(args):
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
 
     
-    preformence_start = time.time()
-    preformence_stop = None
+    preformance_start = time.time()
+    preformance_stop = None
     # Start training
     print("Learner: starting training loop.")
     for t in range(train_steps):
@@ -87,10 +101,10 @@ def learner(args):
         # update target and update shared memory with new weights
         if t % policy_update == 0 and t != 0:
             performence_stop = time.time()
-            performence_elapsed = performence_stop - preformence_start
+            performence_elapsed = performence_stop - preformance_start
             performence_transitions = policy_update * batch_size
             print("consuming ",performence_transitions/performence_elapsed, "tranistions/s")
-            preformence_start = time.time()
+            preformance_start = time.time()
             params = parameters_to_vector(policy_net.parameters()) # get policy weights
             vector_to_parameters(params, target_net.parameters())  # load policy weights to target
             target_net.to(device)
@@ -139,12 +153,36 @@ def learner(args):
         msg = ("priorities", p_update)
         learner_io_queue.put(msg)
 
-    
+
+        # evaluations of policy
+        count_to_eval += 1
+        if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
+            count_to_eval = 0
+            success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
+                                                                            'toric-code-v0',
+                                                                            env_config,
+                                                                            int(system_size/2),
+                                                                            device,
+                                                                            eval_p_errors,
+                                                                            num_of_episodes=1,
+                                                                            epsilon=0.0,
+                                                                            num_of_steps=75,
+                                                                            plot_one_episode=False, 
+                                                                            minimum_nbr_of_qubit_errors=0)
+            for i, p in enumerate(eval_p_errors):
+                tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
+                tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
+                tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
+
+
+    if eval_freq != -1 and could_import_tb:
+        tb.close()
+
     # training done
     # save network
     msg = ("terminate", None)
     learner_io_queue.put(msg)
-    save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, args["save_date"])
+    save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, save_date)
     torch.save(policy_net.state_dict(), save_path)
     print("Saved network to {}".format(save_path))
     print("Total trainingsteps: {}".format(t))

@@ -3,6 +3,14 @@ import numpy as np
 import time
 from datetime import datetime
 
+could_import_tb=True
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    could_import_tb=False
+    print("Could not import tensorboard. No logging will occur.")
+
+
 def io(memory_args):
     
     memory_capacity             = memory_args["capacity"]
@@ -16,30 +24,24 @@ def io(memory_args):
     actor_io_queue              = memory_args["actor_io_queue"]
     
     # Logging of priority distributions
-    log_priority_dist = memory_args["log_priority_dist"]
-    if log_priority_dist:
-        log_write_frequency                 = memory_args["log_write_frequency"]
-        log_priority_sample_max             = memory_args["log_priority_sample_max"]
-        log_priority_sample_interval_size   = memory_args["log_priority_sample_interval_size"]
-        samples_actor   = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
-        samples_learner = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
-        start_time = datetime.now().strftime("%d_%b_%Y-%H:%M:%S")
-        actor_path = "data/sample_distribution_actor_" + start_time + ".data"
-        learner_path = "data/sample_distribution_learner_" + start_time + ".data"
+    should_log = memory_args["log_priority_dist"]
+    if should_log and could_import_tb:
+        start_time                          = memory_args["start_time"]
+        tb_write_dir                        = "runs/{}/IO/".format(start_time)
+        tb_write_frequency                  = memory_args["log_write_frequency"]
+        tb_priority_sample_max              = memory_args["log_priority_sample_max"]
+        tb_priority_sample_interval_size    = memory_args["log_priority_sample_interval_size"]
+        samples_actor   = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
+        samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
-        header = "HEADER:::::min={}, max={}, interval={}".format(0, log_priority_sample_max, log_priority_sample_interval_size)
-
-        # write info in header
-        appendToFile(header, actor_path  , timestamp=False)
-        appendToFile(header, learner_path, timestamp=False)
-
-
-
+        tb = SummaryWriter(tb_write_dir)
 
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
 
     log_count_actor   = 0
     log_count_learner = 0
+    count_gen_trans   = 0
+    count_cons_trans  = 0
     start_learning = False
     total_amout_transitions = 0
     while(True):
@@ -53,17 +55,19 @@ def io(memory_args):
                 replay_memory.save(t, p)
                 total_amout_transitions +=1
 
-                
+
                 # log distribution
-                if log_priority_dist:
-                    samples_actor[min(int(p/log_priority_sample_interval_size), len(samples_actor)-1)] += 1
+                if should_log:
+                    count_gen_trans += 1
+                    samples_actor[min(int(p/tb_priority_sample_interval_size), len(samples_actor)-1)] += 1
             
             # append logged priorities from actor to file
             log_count_actor += 1
-            if log_priority_dist and log_count_actor >= log_write_frequency:
+            if should_log and could_import_tb and log_count_actor >= tb_write_frequency:
                 log_count_actor = 0
-                appendToFile(samples_actor, actor_path)
-                samples_actor = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
+                tb.add_histogram("Distribution/Actor Distribution", samples_actor)
+                tb.add_scalars("Data/", {"Consumption":count_cons_trans, "Generation":count_gen_trans})
+                samples_actor = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
             
          # Sample sample transitions until there are x in queue to learner
@@ -76,16 +80,17 @@ def io(memory_args):
             io_learner_queue.put(data)
 
             # log distribution
-            if log_priority_dist:
-                samples_learner[np.minimum((np.array(priorities)/log_priority_sample_interval_size).astype(np.int), len(samples_actor)-1)] += 1
+            if should_log:
+                count_cons_trans += batch_size
+                samples_learner[np.minimum((np.array(priorities)/tb_priority_sample_interval_size).astype(np.int), len(samples_actor)-1)] += 1
 
 
             # append logger priorities going to actor to file
             log_count_learner += 1
-            if log_priority_dist and log_count_learner >= log_write_frequency:
+            if should_log and could_import_tb and log_count_learner >= tb_write_frequency:
                 log_count_learner = 0 
-                appendToFile(samples_learner, learner_path)
-                samples_learner = np.zeros(int(log_priority_sample_max/log_priority_sample_interval_size))
+                tb.add_histogram("Distribution/Learner Distribution", samples_actor)
+                samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
         # empty queue from learner
         terminate = False
@@ -98,11 +103,6 @@ def io(memory_args):
                 indices, priorities = item
                 replay_memory.priority_update(indices, priorities)            
             elif msg == "terminate":
-                print("Totel amount of generated transitions: ",total_amout_transitions)
-
-
-
-def appendToFile(data, path, timestamp=True):
-    dt = datetime.now().strftime("%H:%M:%S") 
-    with open(path, 'a') as f:
-        f.write(dt + ":::::" + " ".join(map(str, data)) + "\n")
+                if should_log and could_import_tb:
+                    tb.close()
+                print("Total amount of generated transitions: ",total_amout_transitions)

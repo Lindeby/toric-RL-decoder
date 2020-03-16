@@ -8,9 +8,7 @@ import heapq, gym, gym_ToricCode
 
 
 def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error, num_of_episodes=1,
-    num_actions=3, epsilon=0.0, num_of_steps=50, PATH=None, plot_one_episode=False, 
-    show_network=False, minimum_nbr_of_qubit_errors=0, 
-    print_Q_values=False):
+    num_actions=3, epsilon=0.0, num_of_steps=50, plot_one_episode=False, minimum_nbr_of_qubit_errors=0):
     """ Evaluates the current policy by running some episodes.
 
     Params
@@ -25,11 +23,8 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     num_actions:                    (int)       (optional)
     epsilon:                        (float)     (optional)
     num_of_steps:                   (int)       (optional)
-    PATH:                           (String)    (optional)
     plot_one_episode:               (Bool)      (optional)
-    show_network:                   (Bool)      (optional)
     minimum_nbr_of_qubit_errors:    (int)       (optional)
-    print_Q_values:                 (Bool)      (optional)
 
     Return
     ======
@@ -42,9 +37,6 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
             in the environment for which the model was tested on.
     """
 
-    # load network for prediction and set eval mode 
-    if PATH != None:
-        model = load_network(PATH)
     model.to(device)
     model.eval()
 
@@ -62,7 +54,7 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     # loop through different p_error
     for i, p_error in enumerate(prediction_list_p_error):
         ground_state = np.ones(num_of_episodes, dtype=bool)
-        error_corrected = np.zeros(num_of_episodes)
+        error_corrected = np.zeros(num_of_episodes, dtype=bool)
         mean_steps_per_p_error = 0
         mean_q_per_p_error = 0
         steps_counter = 0
@@ -88,22 +80,14 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                 num_of_steps_per_episode += 1
                 
                 # choose greedy action
-                action, q_values = selectAction(number_of_actions=3,
-                                                epsilon=1,
+                action, q_values = selectAction(number_of_actions=num_actions,
+                                                epsilon=epsilon,
                                                 grid_shift=grid_shift,
                                                 toric_size=env.system_size,
                                                 state=state,
                                                 model=model,
                                                 device=device)
-                # action, q_value = select_action_prediction( model=model,
-                #                                             device=device,
-                #                                             state=state,
-                #                                             toric_size=env.system_size,
-                #                                             number_of_actions=num_actions, 
-                #                                             epsilon=0,
-                #                                             grid_shift=grid_shift,
-                #                                             prev_action=prev_action)
-                q_value = q_values[action-1]
+                q_value = q_values[action[-1]-1]
 
                 # prev_action = action
                 next_state, reward, terminal_state, _ = env.step(action)
@@ -115,7 +99,7 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                 mean_q_per_p_error = incrementalMean(q_value, mean_q_per_p_error, steps_counter)
                 
                 if plot_one_episode == True and j == 0 and i == 0:
-                    env.plotToricCode(state, +str(num_of_steps_per_episode))
+                    env.plotToricCode(state, 'step_'+str(num_of_steps_per_episode))
 
             theoretical_q_value = compute_theoretical_q_value(energy_toric)
             
@@ -131,14 +115,12 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                 failed_syndroms.append(init_qubit_state)
                 failed_syndroms.append(env.qubit_matrix)
 
-        success_rate = (num_of_episodes - np.sum(error_corrected)) / num_of_episodes
-        error_corrected_list[i] = success_rate
-        ground_state_change = (num_of_episodes - np.sum(ground_state)) / num_of_episodes
-        ground_state_list[i] =  1 - ground_state_change
+        error_corrected_list[i] = (num_of_episodes - np.sum(~error_corrected)) / num_of_episodes
+        ground_state_list[i] =  1 - (num_of_episodes - np.sum(ground_state)) / num_of_episodes
         average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
         mean_q_list[i] = np.round(mean_q_per_p_error, 3)
 
-    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, theoretical_q_value, experimental_q_values
+    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms
 
 
 
