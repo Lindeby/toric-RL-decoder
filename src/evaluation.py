@@ -1,4 +1,6 @@
 from src.util import load_network, incrementalMean, generatePerspectiveOptimized, Perspective, Action, convert_from_np_to_tensor
+from src.util_actor import selectAction
+
 import numpy as np
 from copy import deepcopy
 import random, torch
@@ -53,6 +55,9 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     mean_q_list = np.zeros(len(prediction_list_p_error))
     failed_syndroms = []
     # failure_rate = 0
+
+    cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":prediction_list_p_error[0]}
+    env = gym.make(env, config=cfg)
     
     # loop through different p_error
     for i, p_error in enumerate(prediction_list_p_error):
@@ -62,15 +67,12 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
         mean_q_per_p_error = 0
         steps_counter = 0
 
-        cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":p_error}
-        env = gym.make(env, config=cfg)
-
         for j in range(num_of_episodes):
             num_of_steps_per_episode = 0
             prev_action = 0
             terminal_state = 0
 
-            state = env.reset()
+            state = env.reset(p_error=p_error)
             
             # plot one episode
             if plot_one_episode == True and j == 0 and i == 0:
@@ -80,39 +82,42 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
 
             # solve syndrome
             energy_toric = []
-            q_values_array = []
+            experimental_q_values = []
             while not terminal_state and num_of_steps_per_episode < num_of_steps:
                 steps_counter += 1
                 num_of_steps_per_episode += 1
                 
                 # choose greedy action
-                action, q_value = select_action_prediction( model=model,
-                                                            device=device,
-                                                            state=state,
-                                                            toric_size=env.system_size,
-                                                            number_of_actions=num_actions, 
-                                                            epsilon=0,
-                                                            grid_shift=grid_shift,
-                                                            prev_action=prev_action)
+                action, q_values = selectAction(number_of_actions=3,
+                                                epsilon=1,
+                                                grid_shift=grid_shift,
+                                                toric_size=env.system_size,
+                                                state=state,
+                                                model=model,
+                                                device=device)
+                # action, q_value = select_action_prediction( model=model,
+                #                                             device=device,
+                #                                             state=state,
+                #                                             toric_size=env.system_size,
+                #                                             number_of_actions=num_actions, 
+                #                                             epsilon=0,
+                #                                             grid_shift=grid_shift,
+                #                                             prev_action=prev_action)
+                q_value = q_values[action-1]
 
-                prev_action = action
+                # prev_action = action
                 next_state, reward, terminal_state, _ = env.step(action)
                 
-                q_values_array.append(q_value)
+                experimental_q_values.append(q_value)
                 energy_toric.append(np.sum(state) - np.sum(next_state)) 
 
                 state = next_state
                 mean_q_per_p_error = incrementalMean(q_value, mean_q_per_p_error, steps_counter)
                 
                 if plot_one_episode == True and j == 0 and i == 0:
-                    env.plotToricCode(state, 'step_-1')#+str(num_of_steps_per_episode))
+                    env.plotToricCode(state, +str(num_of_steps_per_episode))
 
-            np.set_printoptions(precision=2, suppress=True)
             theoretical_q_value = compute_theoretical_q_value(energy_toric)
-            print(q_values_array,'experimental q values')
-            print(theoretical_q_value,'theoreticala q values')
-            deviation_from_theory = (q_values_array - theoretical_q_value)/ theoretical_q_value *100
-            print(deviation_from_theory,'deviation in percent')
             
             # compute mean steps 
             mean_steps_per_p_error = incrementalMean(num_of_steps_per_episode, mean_steps_per_p_error, j+1)
@@ -126,61 +131,61 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                 failed_syndroms.append(init_qubit_state)
                 failed_syndroms.append(env.qubit_matrix)
 
-        success_rate = (num_of_episodes - np.sum(error_corrected)) / num_of_episodes # TODO: This does not make sense
+        success_rate = (num_of_episodes - np.sum(error_corrected)) / num_of_episodes
         error_corrected_list[i] = success_rate
         ground_state_change = (num_of_episodes - np.sum(ground_state)) / num_of_episodes
         ground_state_list[i] =  1 - ground_state_change
         average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
         mean_q_list[i] = np.round(mean_q_per_p_error, 3)
 
-    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms
+    return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms, theoretical_q_value, experimental_q_values
 
 
 
-def select_action_prediction(model, device, state, toric_size, number_of_actions=int, epsilon=float, grid_shift=int, prev_action=float):
-    # set network in eval mode
-    model.eval()
-    # generate perspectives
-    perspectives, position = generatePerspectiveOptimized(grid_shift, toric_size, state)
-    number_of_perspectives = len(perspectives)
-    # preprocess batch of perspectives and actions 
-    batch_perspectives = convert_from_np_to_tensor(np.array(perspectives))
-    batch_perspectives = batch_perspectives.to(device)
-    batch_position_actions = np.array(position)
-    # generate action value for different perspectives 
-    with torch.no_grad():
-        policy_net_output = model(batch_perspectives)
-        q_values_table = np.array(policy_net_output.cpu())
+# def select_action_prediction(model, device, state, toric_size, number_of_actions=int, epsilon=float, grid_shift=int, prev_action=float):
+#     # set network in eval mode
+#     model.eval()
+#     # generate perspectives
+#     perspectives, position = generatePerspectiveOptimized(grid_shift, toric_size, state)
+#     number_of_perspectives = len(perspectives)
+#     # preprocess batch of perspectives and actions 
+#     batch_perspectives = convert_from_np_to_tensor(np.array(perspectives))
+#     batch_perspectives = batch_perspectives.to(device)
+#     batch_position_actions = np.array(position)
+#     # generate action value for different perspectives 
+#     with torch.no_grad():
+#         policy_net_output = model(batch_perspectives)
+#         q_values_table = np.array(policy_net_output.cpu())
     
-    #choose action using epsilon greedy approach
-    rand = random.random()
-    if(1 - epsilon > rand):
-        # select greedy action 
-        row, col = np.where(q_values_table == np.max(q_values_table))
-        p = row[0]
-        a = col[0] + 1
-        action = [  batch_position_actions[p][0],
-                    batch_position_actions[p][1],
-                    batch_position_actions[p][2],
-                    a]
+#     #choose action using epsilon greedy approach
+#     rand = random.random()
+#     if(1 - epsilon > rand):
+#         # select greedy action 
+#         row, col = np.where(q_values_table == np.max(q_values_table))
+#         p = row[0]
+#         a = col[0] + 1
+#         action = [  batch_position_actions[p][0],
+#                     batch_position_actions[p][1],
+#                     batch_position_actions[p][2],
+#                     a]
 
-        if prev_action == action:
-            res = heapq.nlargest(2, q_values_table.flatten())
-            row, col = np.where(q_values_table == res[1])
-            p = row[0]
-            a = col[0] + 1
-    # select random action
-    else:
-        p = random.randint(0, number_of_perspectives-1)
-        a = random.randint(0, number_of_actions-1) +1
+#         # if prev_action == action:
+#         #     res = heapq.nlargest(2, q_values_table.flatten())
+#         #     row, col = np.where(q_values_table == res[1])
+#         #     p = row[0]
+#         #     a = col[0] + 1
+#     # select random action
+#     else:
+#         p = random.randint(0, number_of_perspectives-1)
+#         a = random.randint(0, number_of_actions-1) +1
 
-    q_value = q_values_table[p, a-1]
-    action = [  batch_position_actions[p][0],
-                batch_position_actions[p][1],
-                batch_position_actions[p][2],
-                a]
+#     q_value = q_values_table[p, a-1]
+#     action = [  batch_position_actions[p][0],
+#                 batch_position_actions[p][1],
+#                 batch_position_actions[p][2],
+#                 a]
     
-    return action, q_value
+#     return action, q_value
 
 
 def compute_theoretical_q_value(energy_toric):

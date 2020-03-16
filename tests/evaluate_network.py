@@ -22,6 +22,6 @@ if __name__ == "__main__":
 
     epsilon = [0.1]
     evaluate(model, 'toric-code-v0', env_config, int(env_config["size"]/2), 'cpu', epsilon, num_of_episodes=1,
-    num_actions=3, epsilon=0.0, num_of_steps=50, plot_one_episode=True, 
+    num_actions=3, epsilon=0.0, num_of_steps=50, plot_one_episode=False, 
     show_network=False, minimum_nbr_of_qubit_errors=0, 
     print_Q_values=False)
