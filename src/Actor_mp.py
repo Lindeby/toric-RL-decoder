@@ -30,9 +30,10 @@ def actor(args):
     actor_id        = args["id"]
 
     # env and env params
-    env_p_error         = args["env_p_error_start"]
+    env_p_error_start   = args["env_p_error_start"]
     env_p_error_final   = args["env_p_error_final"]
     env_p_error_delta   = args["env_p_error_delta"]
+    env_p_errors        = np.ones(no_envs)*env_p_error_start
     env  = gym.make(args["env"], config=args["env_config"])
     envs = EnvSet(env, no_envs)
     size = env.system_size
@@ -47,7 +48,7 @@ def actor(args):
     grid_shift = int(size/2)
 
     # startup
-    state = envs.resetAll(p_error=env_p_error)
+    state = envs.resetAll(p_errors=env_p_errors)
     steps_per_episode = np.zeros(no_envs)
 
 
@@ -159,14 +160,11 @@ def actor(args):
         if np.any(terminal_state) or np.any(too_many_steps):
             
             # Reset terminal envs
-            idx                    = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten()
-            reset_states           = envs.resetTerminalEnvs(idx, p_error=env_p_error)
+            idx                    = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten() # find terminal envs
+            env_p_errors[idx]      = np.minimum(env_p_error_final, env_p_errors[idx] + env_p_error_delta) # calculate new p_error roof interval
+            p_errors               = np.random.uniform(env_p_error_start, env_p_errors[idx])              # randomly select new p_error
+            reset_states           = envs.resetTerminalEnvs(idx, p_errors=p_errors)                       # reset using new p_error
             next_state[idx]        = reset_states
             steps_per_episode[idx] = 0
-        
+
         state = next_state
-        env_p_error = min(env_p_error_final, env_p_error + env_p_error_delta)
-
-
-
-    

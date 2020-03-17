@@ -37,9 +37,9 @@ def start_distributed_mp():
     actor_no_actors     = no_cuda_actors + no_cpu_actors
     epsilon             = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     epsilon_delta       = 0.005
-    env_p_error_start   = 0.1
-    env_p_error_final   = 0.3
-    env_p_error_delta   = (env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
+    env_p_error_interval_start    = 0.1
+    env_p_error_interval_final    = 0.3
+    env_p_error_interval_increase = 0.001#(env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
     
     # Replay Memory specific
     replay_memory_size                  = 1000000
@@ -155,9 +155,9 @@ def start_distributed_mp():
         "shared_mem_weights"            :shared_mem_weights,
         "shared_mem_weight_id"          :shared_mem_weight_id,
         "epsilon_delta"                 :epsilon_delta,
-        "env_p_error_start"             :env_p_error_start,
-        "env_p_error_final"             :env_p_error_final,
-        "env_p_error_delta"             :env_p_error_delta
+        "env_p_error_start"             :env_p_error_interval_start,
+        "env_p_error_final"             :env_p_error_interval_final,
+        "env_p_error_delta"             :env_p_error_interval_increase
     }
 
     io_process = mp.Process(target=io, args=(mem_args,))
