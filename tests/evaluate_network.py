@@ -23,22 +23,23 @@ if __name__ == "__main__":
     model.eval()
 
 
-    p_error = np.linspace(0.1, 0.3, 20, endpoint=True)
+    p_error = np.linspace(0.1, 0.3, 200, endpoint=True)
     success_rate, ground_state_rate, average_number_of_steps_list, mean_q_list, failed_syndroms = evaluate( model,
                                                                                                             'toric-code-v0',
                                                                                                             env_config,
                                                                                                             int(env_config["size"]/2),
                                                                                                             'cpu',
                                                                                                             p_error,
-                                                                                                            num_of_episodes=1,
+                                                                                                            num_of_episodes=50,
                                                                                                             epsilon=0.0,
                                                                                                             num_of_steps=50,
                                                                                                             plot_one_episode=True, 
                                                                                                             minimum_nbr_of_qubit_errors=0)
 
-    tb = SummaryWriter(log_dir='runs/test/',filename_suffix='_test')
+    tb = SummaryWriter(log_dir='runs/test/')
     
     for i, p in enumerate(p_error):
-        tb.add_scalar("Testing/Evaluation of Network", ground_state_rate[i], p*100)
+        print(ground_state_rate[i])
+        tb.add_scalar("Performance/Ground State Rate", ground_state_rate[i], p*100)
 
     tb.close()

@@ -17,38 +17,40 @@ def start_distributed_mp():
     # Setup
     
     # Learner specific
-    learner_training_steps = 100000
-    learner_learning_rate = 0.00025
-    learner_policy_update = 50
-    learner_optimizer = 'Adam'
-    learner_device = 'cpu'
-    learner_job_max_time =  30#60*3 -2 #2 hours 58min
-    learner_save_date = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
-    learner_eval_p_errors = [0.1, 0.2, 0.3]
+    learner_training_steps   = 100000
+    learner_learning_rate    = 0.00025
+    learner_policy_update    = 50
+    learner_optimizer        = 'Adam'
+    learner_device           = 'cpu'
+    learner_job_max_time     =  30#60*3 -2 #2 hours 58min
+    learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
+    learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 1
-    learner_eval_freq = 1          # -1 for no logging
+    learner_eval_freq        = 1 # -1 for no logging
    
     # Actor specific
-    actor_max_actions_per_episode = 75
+    actor_max_actions_per_episode  = 5
     actor_size_local_memory_buffer = 2
-    actor_no_envs = 100           #number of envs/actor
-    no_cuda_actors = 1
-    no_cpu_actors = 0
-    actor_no_actors = no_cuda_actors + no_cpu_actors
-    epsilon = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
-    epsilon_delta = 0.005
-
+    actor_no_envs       = 10           #number of envs/actor
+    no_cuda_actors      = 0
+    no_cpu_actors       = 1
+    actor_no_actors     = no_cuda_actors + no_cpu_actors
+    epsilon             = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
+    epsilon_delta       = 0.005
+    env_p_error_start   = 0.1
+    env_p_error_final   = 0.3
+    env_p_error_delta   = (env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
     
     # Replay Memory specific
-    replay_memory_size = 1000000
-    replay_memory_alpha = 0.6
-    replay_memory_beta = 0.4
+    replay_memory_size                  = 1000000
+    replay_memory_alpha                 = 0.6
+    replay_memory_beta                  = 0.4
     replay_memory_size_before_sampeling = 50
-    replay_memory_batch_in_queue_limit = 2 #number of batches in queue to learner
-    log_priority_dist = True
-    log_write_frequency = 50
-    log_priority_sample_max = 100
-    log_priority_sample_interval_size = 0.1
+    replay_memory_batch_in_queue_limit  = 2 #number of batches in queue to learner
+    log_priority_dist                   = True
+    log_write_frequency                 = 50
+    log_priority_sample_max             = 100
+    log_priority_sample_interval_size   = 0.1
     
     # Shared
     batch_size = 1
@@ -152,7 +154,10 @@ def start_distributed_mp():
         "actor_io_queue"                :actor_io_queue,
         "shared_mem_weights"            :shared_mem_weights,
         "shared_mem_weight_id"          :shared_mem_weight_id,
-        "epsilon_delta"                 :epsilon_delta
+        "epsilon_delta"                 :epsilon_delta,
+        "env_p_error_start"             :env_p_error_start,
+        "env_p_error_final"             :env_p_error_final,
+        "env_p_error_delta"             :env_p_error_delta
     }
 
     io_process = mp.Process(target=io, args=(mem_args,))

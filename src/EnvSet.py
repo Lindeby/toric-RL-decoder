@@ -16,15 +16,15 @@ class EnvSet():
             self.envs.append(copy.deepcopy(env))
 
 
-    def resetTerminalEnvs(self, idx):
+    def resetTerminalEnvs(self, idx, p_error=None):
         states = np.empty((len(idx), 2, self.size, self.size))
         for i, id in enumerate(idx):
-            states[i] = self.envs[id].reset()
+            states[i] = self.envs[id].reset(p_error=p_error)
         return states
 
-    def resetAll(self):
+    def resetAll(self, p_error=None):
         for i, e in enumerate(self.envs):
-            self.states[i] = e.reset()
+            self.states[i] = e.reset(p_error=p_error)
         return self.states
 
     def step(self, actions):

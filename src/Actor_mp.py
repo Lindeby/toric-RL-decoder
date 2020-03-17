@@ -30,6 +30,9 @@ def actor(args):
     actor_id        = args["id"]
 
     # env and env params
+    env_p_error         = args["env_p_error_start"]
+    env_p_error_final   = args["env_p_error_final"]
+    env_p_error_delta   = args["env_p_error_delta"]
     env  = gym.make(args["env"], config=args["env_config"])
     envs = EnvSet(env, no_envs)
     size = env.system_size
@@ -44,7 +47,7 @@ def actor(args):
     grid_shift = int(size/2)
 
     # startup
-    state = envs.resetAll()
+    state = envs.resetAll(p_error=env_p_error)
     steps_per_episode = np.zeros(no_envs)
 
 
@@ -82,8 +85,8 @@ def actor(args):
     model.to(device)
     model.eval()
     
-    preformence_start = time.time()
-    preformence_stop = None
+    performance_start = time.time()
+    performance_stop = None
     print("Actor ",actor_id,": starting loop device: ",device)
     # main loop over training steps
     while True:
@@ -92,12 +95,12 @@ def actor(args):
         
         # select action using epsilon greedy policy
         action, q_values = selectActionBatch(number_of_actions=no_actions,
-                                                epsilon=epsilon,
-                                                grid_shift=grid_shift,
-                                                toric_size = size,
-                                                state = state,
-                                                model = model,
-                                                device = device)
+                                             epsilon=epsilon,
+                                             grid_shift=grid_shift,
+                                             toric_size = size,
+                                             state = state,
+                                             model = model,
+                                             device = device)
         next_state, reward, terminal_state, _ = envs.step(action)
          
         transition = generateTransitionParallel(action,
@@ -142,11 +145,11 @@ def actor(args):
             to_send = [*zip(local_buffer_T[:,:-1].flatten(), priorities.flatten())]
             
             
-            performence_stop = time.time()
-            performence_elapsed = performence_stop - preformence_start
+            performance_stop = time.time()
+            performance_elapsed = performance_stop - performance_start
             performence_transitions = len(to_send)
-            print("Actor ",actor_id," generating ",performence_transitions/performence_elapsed, "tranistions/s")
-            preformence_start = time.time()
+            print("Actor ",actor_id," generating ",performence_transitions/performance_elapsed, "tranistions/s")
+            performance_start = time.time()
 
             # send buffer to learner
             actor_io_queue.put(to_send)
@@ -156,12 +159,13 @@ def actor(args):
         if np.any(terminal_state) or np.any(too_many_steps):
             
             # Reset terminal envs
-            idx = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten()
-            reset_states = envs.resetTerminalEnvs(idx)
+            idx                    = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten()
+            reset_states           = envs.resetTerminalEnvs(idx, p_error=env_p_error)
             next_state[idx]        = reset_states
             steps_per_episode[idx] = 0
         
         state = next_state
+        env_p_error = min(env_p_error_final, env_p_error + env_p_error_delta)
 
 
 
