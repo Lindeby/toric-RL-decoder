@@ -44,6 +44,7 @@ def io(memory_args):
     count_cons_trans  = 0
     start_learning = False
     total_amout_transitions = 0
+    stop_watch = time.time()
     while(True):
 
         # empty queue of transtions from actors
@@ -65,8 +66,11 @@ def io(memory_args):
             log_count_actor += 1
             if should_log and could_import_tb and log_count_actor >= tb_write_frequency:
                 log_count_actor = 0
+                t = time.time()
                 tb.add_histogram("Distribution/Actor Distribution", samples_actor)
-                tb.add_scalars("Data/", {"Consumption":count_cons_trans, "Generation":count_gen_trans})
+                tb.add_scalars("Data/", {"Total Consumption":count_cons_trans, "Total Generation":count_gen_trans})
+                tb.add_scalars("Data/", {"Consumption per Second":count_cons_trans/(stop_watch-t), "Generation per Second":count_gen_trans/(stop_watch-t)})
+                stop_watch = time.time()
                 samples_actor = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
             

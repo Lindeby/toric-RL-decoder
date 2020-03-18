@@ -15,7 +15,7 @@ from src.numba.util_actor import selectActionBatch
 # Quality of life
 from src.nn.torch.NN import NN_11, NN_17
 from src.EnvSet import EnvSet
-import time            
+import time
 
 def actor(args):
      
@@ -30,10 +30,11 @@ def actor(args):
     actor_id        = args["id"]
 
     # env and env params
-    env_p_error_start   = args["env_p_error_start"]
-    env_p_error_final   = args["env_p_error_final"]
-    env_p_error_delta   = args["env_p_error_delta"]
-    env_p_errors        = np.ones(no_envs)*env_p_error_start
+    env_p_error_start    = args["env_p_error_start"]
+    env_p_error_final    = args["env_p_error_final"]
+    env_p_error_delta    = args["env_p_error_delta"]
+    env_p_error_strategy = args['env_p_error_strategy'] 
+    env_p_errors         = np.ones(no_envs)*env_p_error_start
     env  = gym.make(args["env"], config=args["env_config"])
     envs = EnvSet(env, no_envs)
     size = env.system_size
@@ -162,7 +163,10 @@ def actor(args):
             # Reset terminal envs
             idx                    = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten() # find terminal envs
             env_p_errors[idx]      = np.minimum(env_p_error_final, env_p_errors[idx] + env_p_error_delta) # calculate new p_error roof interval
-            p_errors               = np.random.uniform(env_p_error_start, env_p_errors[idx])              # randomly select new p_error
+            if env_p_error_strategy is 'random':
+                p_errors = np.random.uniform(env_p_error_start, env_p_errors[idx])                        # randomly select new p_error
+            else: # linear
+                p_errors = env_p_errors[idx]                                                              # linearly select new p_error
             reset_states           = envs.resetTerminalEnvs(idx, p_errors=p_errors)                       # reset using new p_error
             next_state[idx]        = reset_states
             steps_per_episode[idx] = 0

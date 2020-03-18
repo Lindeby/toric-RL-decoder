@@ -39,7 +39,8 @@ def start_distributed_mp():
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
-    env_p_error_interval_increase = 0.001#(env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
+    env_p_error_interval_increase = 0.001
+    env_p_error_strategy          = 'random' # either {'random', 'linear'}
     
     # Replay Memory specific
     replay_memory_size                  = 1000000
@@ -48,9 +49,9 @@ def start_distributed_mp():
     replay_memory_size_before_sampeling = replay_memory_size*0.05
     replay_memory_batch_in_queue_limit  = 10 #number of batches in queue to learner
     log_priority_dist                   = True
-    log_write_frequency                 = 50
-    log_priority_sample_max             = 100
-    log_priority_sample_interval_size   = 0.1
+    log_write_frequency                 = 500
+    log_priority_sample_max             = 10
+    log_priority_sample_interval_size   = 0.01
     
     # Shared
     batch_size = 32
@@ -157,7 +158,8 @@ def start_distributed_mp():
         "epsilon_delta"                 :epsilon_delta,
         "env_p_error_start"             :env_p_error_interval_start,
         "env_p_error_final"             :env_p_error_interval_final,
-        "env_p_error_delta"             :env_p_error_interval_increase
+        "env_p_error_delta"             :env_p_error_interval_increase,
+        "env_p_error_strategy"          :env_p_error_strategy
     }
 
     io_process = mp.Process(target=io, args=(mem_args,))

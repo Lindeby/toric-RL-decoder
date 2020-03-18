@@ -164,7 +164,7 @@ def learner(args):
                                                                             int(system_size/2),
                                                                             device,
                                                                             eval_p_errors,
-                                                                            num_of_episodes=1,
+                                                                            num_of_episodes=eval_no_episodes,
                                                                             epsilon=0.0,
                                                                             num_of_steps=75,
                                                                             plot_one_episode=False, 
