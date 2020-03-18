@@ -40,6 +40,7 @@ def learner(args):
     grid_shift      = int(env_config["size"]/2)
     policy_update   = args["policy_update"]
     save_date       = args["save_date"]
+    actor_env_p_error_strategy = args["actor_env_p_error_strategy"]
 
     # eval params
     eval_p_errors       = args["learner_eval_p_errors"]
@@ -182,7 +183,7 @@ def learner(args):
     # save network
     msg = ("terminate", None)
     learner_io_queue.put(msg)
-    save_path = "network/mp/Size_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, save_date)
+    save_path = "network/mp/Size_{}_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, actor_env_p_error_strategy, save_date)
     torch.save(policy_net.state_dict(), save_path)
     print("Saved network to {}".format(save_path))
     print("Total trainingsteps: {}".format(t))
