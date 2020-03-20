@@ -22,7 +22,7 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*60*12 -2 #2 hours 58min
+    learner_job_max_time     = 60*60*24 -2 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.15, 0.2, 0.25, 0.3]
     learner_eval_no_episodes = 50
@@ -32,10 +32,11 @@ def start_distributed_mp():
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 10
     actor_no_envs       = 100           #number of envs/actor
-    no_cuda_actors      = 3
-    no_cpu_actors       = 0
+    no_cuda_actors      = 1
+    no_cpu_actors       = 1
     actor_no_actors     = no_cuda_actors + no_cpu_actors
-    epsilon             = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
+    #epsilon             = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
+    epsilon             = calculateEpsilon(0.8, 7, actor_no_envs)
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
@@ -46,7 +47,7 @@ def start_distributed_mp():
     replay_memory_size                  = 1000000
     replay_memory_alpha                 = 0.6
     replay_memory_beta                  = 0.4
-    replay_memory_size_before_sampeling = replay_memory_size*0.05
+    replay_memory_size_before_sampeling = 1000#replay_memory_size*0.05
     replay_memory_batch_in_queue_limit  = 10 #number of batches in queue to learner
     log_priority_dist                   = True
     log_write_frequency                 = 500
@@ -57,13 +58,13 @@ def start_distributed_mp():
     batch_size = 32
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":7,
+    env_config = {  "size":9,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
 
-    #model = ResNet18
-    model = NN_11
+    model = ResNet18
+    #model = NN_11
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": env_config["size"]
                     }
@@ -172,7 +173,8 @@ def start_distributed_mp():
            actor_args["device"] = 'cpu'
         
         actor_args["id"] = i
-        actor_args["epsilon_final"] = epsilon[i * actor_no_envs : i * actor_no_envs + actor_no_envs]
+        #actor_args["epsilon_final"] = epsilon[i * actor_no_envs : i * actor_no_envs + actor_no_envs]
+        actor_args["epsilon_final"] = epsilon
         actor_process.append(mp.Process(target=actor, args=(actor_args,)))
         actor_process[i].start()
     
