@@ -12,6 +12,14 @@ from torch.nn.utils import parameters_to_vector
 from datetime import datetime
 import time
 
+could_import_tb=True
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    could_import_tb=False
+    print("Could not import tensorboard. No logging will occur.")
+
+
 def start_distributed_mp():
 
     # Setup
@@ -164,6 +172,10 @@ def start_distributed_mp():
         "env_p_error_strategy"          :env_p_error_strategy
     }
 
+    # log header to tensorboard
+    if could_import_tb:
+        log("runs/{}/RunInfo/".format(learner_save_date), actor_args, learner_args, mem_args)
+
     io_process = mp.Process(target=io, args=(mem_args,))
     actor_process = []    
     for i in range(actor_no_actors):
@@ -188,6 +200,67 @@ def start_distributed_mp():
     print("Script complete.")
     
         
+def log(path, actor, learner, memory):
+    tb_setup_string = ("env_size: {}  \n"
+                    "learning_rate: {}  \n"
+                    "learner_update_policy: {}  \n"
+                    "learner_optimizer: {}  \n"
+                    "learner_device: {}  \n"
+                    "learner_job_max_time: {}  \n"
+                    "learner_save_date: {}  \n"
+                    "learner_eval_no_episodes: {}  \n"
+                    "learner_eval_freq: {}  \n"
+                    "actor_max_actions_per_episode: {}  \n"
+                    "actor_size_local_memory_buffer: {}  \n"
+                    "actor_no_envs: {}  \n"
+                    "no_cuda_actors: {}  \n"
+                    "no_cpu_actors: {}  \n"
+                    "env_p_error_interval_start: {}  \n"   
+                    "env_p_error_interval_final: {}  \n"   
+                    "env_p_error_interval_increase: {}  \n"
+                    "env_p_error_strategy: {}  \n"
+                    "replay_memory_size: {}  \n"                            
+                    "replay_memory_alpha: {}  \n"                 
+                    "replay_memory_beta: {}  \n"                  
+                    "replay_memory_size_before_sampeling: {}  \n" 
+                    "replay_memory_batch_in_queue_limit: {}  \n"  
+                    "log_priority_dist: {}  \n"                   
+                    "log_write_frequency: {}  \n"                 
+                    "log_priority_sample_max: {}  \n"             
+                    "log_priority_sample_interval_size: {}  \n"
+                    "batch_size: {}  \n"
+                    "discount_factor: {}  \n").format(  learner["env_config"]["size"],
+                                                        learner["learning_rate"],
+                                                        learner["policy_update"],
+                                                        learner["optimizer"],
+                                                        learner["device"],
+                                                        learner["job_max_time"],
+                                                        learner["save_date"],
+                                                        learner["learner_eval_no_episodes"],
+                                                        learner["learner_eval_freq"],
+                                                        actor["max_actions_per_episode"],
+                                                        actor["size_local_memory_buffer"],
+                                                        actor["no_envs"],
+                                                        actor["no_cuda_actors"],
+                                                        actor["no_cpu_actors"],
+                                                        actor["env_p_error_start"],
+                                                        actor["env_p_error_final"],
+                                                        actor["env_p_error_delta"],
+                                                        actor["env_p_error_strategy"],
+                                                        memory["capacity"],
+                                                        memory["alpha"],
+                                                        memory["beta"],
+                                                        memory["replay_size_before_sampling"],
+                                                        memory["batch_in_queue_limit"],
+                                                        memory["log_priority_dist"],
+                                                        memory["log_write_frequency"],
+                                                        memory["log_priority_sample_max"],
+                                                        memory["log_priority_sample_interval_size"],
+                                                        memory["batch_size"],
+                                                        actor["discount_factor"])
+    tb = SummaryWriter(path)
+    tb.add_text("RunInfo/HyperParams", tb_setup_string)
+    tb.close()
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)

@@ -175,7 +175,7 @@ def learner(args):
                 tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
                 tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
 
-
+    # close tensorboard writer
     if eval_freq != -1 and could_import_tb:
         tb.close()
 
@@ -183,7 +183,7 @@ def learner(args):
     # save network
     msg = ("terminate", None)
     learner_io_queue.put(msg)
-    save_path = "network/mp/Size_{}_{}_{}_{}.pt".format(system_size, type(policy_net).__name__, actor_env_p_error_strategy, save_date)
+    save_path = "runs/{}/Size_{}_{}_{}_{}.pt".format(save_date, system_size, type(policy_net).__name__, actor_env_p_error_strategy, save_date)
     torch.save(policy_net.state_dict(), save_path)
     print("Saved network to {}".format(save_path))
     print("Total trainingsteps: {}".format(t))
