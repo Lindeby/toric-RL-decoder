@@ -73,7 +73,7 @@ def io(memory_args):
                 t = time.time()
                 tb.add_histogram("Distribution/Actor Distribution", samples_actor)
                 tb.add_scalars("Data/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
-                tb.add_scalars("Data/", {"Consumption per Second":count_cons_trans/(stop_watch-t), "Generation per Second":count_gen_trans/(stop_watch-t)})
+                tb.add_scalars("Data/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
                 stop_watch = time.time()
                 count_gen_trans  = 0
                 count_cons_trans = 0
