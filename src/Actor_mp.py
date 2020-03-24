@@ -17,6 +17,14 @@ from src.nn.torch.NN import NN_11, NN_17
 from src.EnvSet import EnvSet
 import time
 
+
+could_import_tb=True
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except:
+    could_import_tb=False
+    print("Could not import tensorboard. No logging will occur.")
+
 def actor(args):
      
     device          = args["device"]
@@ -28,6 +36,8 @@ def actor(args):
     epsilon         = np.ones(len(epsilon_final))
     epsilon_delta   = args["epsilon_delta"]
     actor_id        = args["id"]
+
+    should_log = args["log_actor"]
 
     # env and env params
     env_p_error_start    = args["env_p_error_start"]
@@ -150,7 +160,7 @@ def actor(args):
             performance_stop = time.time()
             performance_elapsed = performance_stop - performance_start
             performence_transitions = len(to_send)
-            print("Actor ",actor_id," generating ",performence_transitions/performance_elapsed, "tranistions/s")
+            #print("Actor ",actor_id," generating ",performence_transitions/performance_elapsed, "tranistions/s")
             performance_start = time.time()
 
             # send buffer to learner
@@ -163,7 +173,7 @@ def actor(args):
             # Reset terminal envs
             idx                    = np.argwhere(np.logical_or(terminal_state, too_many_steps)).flatten() # find terminal envs
             env_p_errors[idx]      = np.minimum(env_p_error_final, env_p_errors[idx] + env_p_error_delta) # calculate new p_error roof interval
-            if env_p_error_strategy is 'random':
+            if env_p_error_strategy == 'random':
                 p_errors = np.random.uniform(env_p_error_start, env_p_errors[idx])                        # randomly select new p_error
             else: # linear
                 p_errors = env_p_errors[idx]                                                              # linearly select new p_error
