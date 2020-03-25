@@ -104,7 +104,7 @@ def learner(args):
             performence_stop = time.time()
             performence_elapsed = performence_stop - preformance_start
             performence_transitions = policy_update * batch_size
-            print("consuming ",performence_transitions/performence_elapsed, "tranistions/s")
+            #print("consuming ",performence_transitions/performence_elapsed, "tranistions/s")
             preformance_start = time.time()
             params = parameters_to_vector(policy_net.parameters()) # get policy weights
             vector_to_parameters(params, target_net.parameters())  # load policy weights to target

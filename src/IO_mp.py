@@ -12,7 +12,7 @@ except:
     print("Could not import tensorboard. No logging will occur.")
 
 
-def io(memory_args, actor_args, learner_args):
+def io(memory_args):
     
     memory_capacity             = memory_args["capacity"]
     memory_alpha                = memory_args["alpha"]
@@ -82,11 +82,9 @@ def io(memory_args, actor_args, learner_args):
                 count_gen_trans  = 0
                 count_cons_trans = 0
                 samples_actor    = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
-
-            if should_log and nvidia_log_time + tb_nvidia_log_freq > time.time():
+            if should_log and nvidia_log_time + tb_nvidia_log_freq < time.time():
                 nvidia_log_time = time.time() 
                 gpu_info = nvgpu.gpu_info()
-                
                 for i in gpu_info:
             
                     gpu = '{} {}'.format(i['type'], i['index'])
