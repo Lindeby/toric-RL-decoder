@@ -137,10 +137,10 @@ def actor(args):
 
             with shared_mem_weights.get_lock():
                 if current_weight_id < shared_mem_weight_id.value:
+                    print("Actor updated network params.")
                     reader = np.frombuffer(shared_mem_weights.get_obj())
                     np.copyto(weights, reader)
                     current_weight_id = shared_mem_weight_id.value
-                    print(current_weight_id)
                     new_weights = True
             # load new weights into model
             if new_weights:
