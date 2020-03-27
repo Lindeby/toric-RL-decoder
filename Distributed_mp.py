@@ -29,11 +29,11 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     =  60*5#60*3 -2 #2 hours 58min
+    learner_job_max_time     =  60*20#60*3 -2 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
-    learner_eval_no_episodes = 50
-    learner_eval_freq        = 1000 # -1 for no logging
+    learner_eval_no_episodes = 10
+    learner_eval_freq        = 500 # -1 for no logging
    
     # Actor specific
     actor_max_actions_per_episode  = 75
@@ -46,7 +46,7 @@ def start_distributed_mp():
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
-    env_p_error_interval_increase = 0.001#(env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
+    env_p_error_interval_increase = 0.0005#(env_p_error_final-env_p_error_start)/learner_training_steps # temporary calculation
     
     # Replay Memory specific
     replay_memory_size                  = 1000000
@@ -63,7 +63,7 @@ def start_distributed_mp():
     batch_size = 32
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":3,
+    env_config = {  "size":5,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
