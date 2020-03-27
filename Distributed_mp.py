@@ -121,8 +121,7 @@ def start_distributed_mp():
         "shared_mem_weight_id"          :shared_mem_weight_id,
         "learner_eval_p_errors"         :learner_eval_p_errors,
         "learner_eval_no_episodes"      :learner_eval_no_episodes,
-        "learner_eval_freq"             :learner_eval_freq,
-        "actor_env_p_error_strategy"    :env_p_error_strategy
+        "learner_eval_freq"             :learner_eval_freq
     }
     
     
