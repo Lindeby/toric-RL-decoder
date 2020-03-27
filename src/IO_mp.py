@@ -91,9 +91,14 @@ def io(memory_args):
                 t = time.time()
                 tb.add_scalars("Data/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
                 tb.add_scalars("Data/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
+                tb.add_scalars("Data/", {"Consumption":count_cons_trans, "Generation":count_gen_trans})
+                tb.add_histogram("Distribution/Actor Distribution", samples_actor)
+                tb.add_histogram("Distribution/Learner Distribution", samples_learner)
                 print("Consuption per Second ", count_cons_trans/(t-stop_watch))
                 print("Generation per Second ", count_gen_trans/(t-stop_watch))
                 stop_watch = time.time()
+                samples_actor = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
+                samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
                 count_gen_trans  = 0
                 count_cons_trans = 0
 
@@ -113,12 +118,12 @@ def io(memory_args):
                 samples_learner[np.minimum((np.array(priorities)/tb_priority_sample_interval_size).astype(np.int), len(samples_actor)-1)] += 1
 
 
-            # append logger priorities going to actor to file
-            log_count_learner += 1
-            if should_log and could_import_tb and log_count_learner >= tb_write_frequency:
-                log_count_learner = 0 
-                tb.add_histogram("Distribution/Learner Distribution", samples_actor)
-                samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
+            # # append logger priorities going to actor to file
+            # log_count_learner += 1
+            # if should_log and could_import_tb and log_count_learner >= tb_write_frequency:
+            #     log_count_learner = 0 
+            #     tb.add_histogram("Distribution/Learner Distribution", samples_actor)
+            #     samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
         # empty queue from learner
         terminate = False
