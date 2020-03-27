@@ -206,8 +206,9 @@ def log(path, actor, learner, memory):
                     "actor_max_actions_per_episode: {}  \n"
                     "actor_size_local_memory_buffer: {}  \n"
                     "actor_no_envs: {}  \n"
-                    "no_cuda_actors: {}  \n"
-                    "no_cpu_actors: {}  \n"
+                    "no_actors: {}  \n"
+                    # "no_cuda_actors: {}  \n"
+                    # "no_cpu_actors: {}  \n"
                     "env_p_error_interval_start: {}  \n"   
                     "env_p_error_interval_final: {}  \n"   
                     "env_p_error_interval_increase: {}  \n"
@@ -234,8 +235,9 @@ def log(path, actor, learner, memory):
                                                         actor["max_actions_per_episode"],
                                                         actor["size_local_memory_buffer"],
                                                         actor["no_envs"],
-                                                        actor["no_cuda_actors"],
-                                                        actor["no_cpu_actors"],
+                                                        actor["actor_no_actors"],
+                                                        # actor["no_cuda_actors"],
+                                                        # actor["no_cpu_actors"],
                                                         actor["env_p_error_start"],
                                                         actor["env_p_error_final"],
                                                         actor["env_p_error_delta"],
