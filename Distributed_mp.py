@@ -211,7 +211,7 @@ def log(path, actor, learner, memory):
                     "env_p_error_interval_start: {}  \n"   
                     "env_p_error_interval_final: {}  \n"   
                     "env_p_error_interval_increase: {}  \n"
-                    "env_p_error_strategy: {}  \n"
+                    # "env_p_error_strategy: {}  \n"
                     "replay_memory_size: {}  \n"                            
                     "replay_memory_alpha: {}  \n"                 
                     "replay_memory_beta: {}  \n"                  
@@ -239,7 +239,7 @@ def log(path, actor, learner, memory):
                                                         actor["env_p_error_start"],
                                                         actor["env_p_error_final"],
                                                         actor["env_p_error_delta"],
-                                                        actor["env_p_error_strategy"],
+                                                        # actor["env_p_error_strategy"],
                                                         memory["capacity"],
                                                         memory["alpha"],
                                                         memory["beta"],
