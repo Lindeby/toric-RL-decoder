@@ -32,8 +32,8 @@ def start_distributed_mp():
     learner_device           = 'cuda'
     learner_job_max_time     = 60*30 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
-    learner_eval_p_errors    = [0.1, 0.15, 0.2, 0.25, 0.3]
-    learner_eval_no_episodes = 50
+    learner_eval_p_errors    = [0.1, 0.2, 0.3]
+    learner_eval_no_episodes = 10
     learner_eval_freq        = 1000 # -1 for no logging
    
     # Actor specific
