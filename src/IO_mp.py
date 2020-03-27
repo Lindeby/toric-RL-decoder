@@ -101,7 +101,7 @@ def io(memory_args):
                 tb.add_scalars("Data/total/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
                 tb.add_scalars("Data/speed/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
                 tb.add_histogram("Distribution/Actor Distribution", samples_actor)
-                tb.add_histogram("Distribution/Learner Distribution", samples_actor)
+                tb.add_histogram("Distribution/Learner Distribution", samples_learner)
                 
                 print("Consuption per Second ", count_cons_trans/(t-stop_watch))
                 print("Generation per Second ", count_gen_trans/(t-stop_watch))
