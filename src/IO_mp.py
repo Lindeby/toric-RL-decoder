@@ -2,6 +2,7 @@ from src.ReplayMemory import PrioritizedReplayMemory
 import numpy as np
 import time
 from datetime import datetime
+import nvgpu
 
 could_import_tb=True
 try:
@@ -35,15 +36,20 @@ def io(memory_args):
         samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
         tb = SummaryWriter(tb_write_dir)
+        tb_nvidia_log_freq = 10 #seconds
 
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
 
-    log_count_actor   = 0
+    log_count_actor   = 0     
     log_count_learner = 0
     count_gen_trans   = 0
     count_cons_trans  = 0
+    count_total_gen_trans = 0
+    count_total_cons_trans = 0
     start_learning = False
     total_amout_transitions = 0
+    nvidia_log_time = time.time()
+    stop_watch = time.time()
     while(True):
 
         # empty queue of transtions from actors
@@ -62,12 +68,34 @@ def io(memory_args):
                     samples_actor[min(int(p/tb_priority_sample_interval_size), len(samples_actor)-1)] += 1
             
             # append logged priorities from actor to file
-            log_count_actor += 1
-            if should_log and could_import_tb and log_count_actor >= tb_write_frequency:
-                log_count_actor = 0
-                tb.add_histogram("Distribution/Actor Distribution", samples_actor)
-                tb.add_scalars("Data/", {"Consumption":count_cons_trans, "Generation":count_gen_trans})
-                samples_actor = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
+            # log_count_actor += 1
+            # if should_log and could_import_tb and log_count_actor >= tb_write_frequency:
+            #     log_count_actor = 0
+            #     tb.add_histogram("Distribution/Actor Distribution", samples_actor)
+            #     tb.add_scalars("Data/", {"Consumption":count_cons_trans, "Generation":count_gen_trans})
+            #     samples_actor = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
+
+            if should_log and nvidia_log_time + tb_nvidia_log_freq < time.time():
+                nvidia_log_time = time.time() 
+                gpu_info = nvgpu.gpu_info()
+                for i in gpu_info:
+            
+                    gpu = '{} {}'.format(i['type'], i['index'])
+                    mem_total = i['mem_total']
+                    mem_used = i['mem_used'] 
+                    tb.add_scalars(gpu, {'mem_total':mem_total,
+                                           'mem_used':mem_used})
+
+                count_total_gen_trans  += count_gen_trans
+                count_total_cons_trans += count_cons_trans
+                t = time.time()
+                tb.add_scalars("Data/total/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
+                tb.add_scalars("Data/speed/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
+                print("Consuption per Second ", count_cons_trans/(t-stop_watch))
+                print("Generation per Second ", count_gen_trans/(t-stop_watch))
+                stop_watch = time.time()
+                count_gen_trans  = 0
+                count_cons_trans = 0
 
             
          # Sample sample transitions until there are x in queue to learner
