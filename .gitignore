@@ -23,3 +23,4 @@ n_step_test.py
 test_gen_persp.py
 man_eval.py
 man_test.py
+results/
