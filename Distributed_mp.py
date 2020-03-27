@@ -28,7 +28,7 @@ def start_distributed_mp():
     learner_learning_rate    = 0.00025
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
-    learner_device           = 'cpu'
+    learner_device           = 'cuda'
     learner_job_max_time     =  60*5#60*3 -2 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
@@ -211,7 +211,7 @@ def log(path, actor, learner, memory):
                     "env_p_error_interval_start: {}  \n"   
                     "env_p_error_interval_final: {}  \n"   
                     "env_p_error_interval_increase: {}  \n"
-                    # "env_p_error_strategy: {}  \n"
+                    "env_p_error_strategy: {}  \n"
                     "replay_memory_size: {}  \n"                            
                     "replay_memory_alpha: {}  \n"                 
                     "replay_memory_beta: {}  \n"                  
@@ -239,7 +239,7 @@ def log(path, actor, learner, memory):
                                                         actor["env_p_error_start"],
                                                         actor["env_p_error_final"],
                                                         actor["env_p_error_delta"],
-                                                        # actor["env_p_error_strategy"],
+                                                        "random",
                                                         memory["capacity"],
                                                         memory["alpha"],
                                                         memory["beta"],
