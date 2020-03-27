@@ -29,7 +29,7 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cpu'
-    learner_job_max_time     =  30#60*3 -2 #2 hours 58min
+    learner_job_max_time     =  60#60*3 -2 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 1
@@ -206,7 +206,6 @@ def log(path, actor, learner, memory):
                     "actor_max_actions_per_episode: {}  \n"
                     "actor_size_local_memory_buffer: {}  \n"
                     "actor_no_envs: {}  \n"
-                    "no_actors: {}  \n"
                     # "no_cuda_actors: {}  \n"
                     # "no_cpu_actors: {}  \n"
                     "env_p_error_interval_start: {}  \n"   
@@ -235,7 +234,6 @@ def log(path, actor, learner, memory):
                                                         actor["max_actions_per_episode"],
                                                         actor["size_local_memory_buffer"],
                                                         actor["no_envs"],
-                                                        actor["actor_no_actors"],
                                                         # actor["no_cuda_actors"],
                                                         # actor["no_cpu_actors"],
                                                         actor["env_p_error_start"],
