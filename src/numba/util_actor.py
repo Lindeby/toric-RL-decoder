@@ -80,7 +80,7 @@ def _selectActionBatch_prime(q_values_table, splice_idx, positions, greedy):
     ======
     (np.ndarray), (np.ndarray)
     """
-
+    
     actions = np.empty((len(splice_idx), 4))
     q_v     = np.empty((len(splice_idx), 3))
     first = 0
@@ -88,7 +88,7 @@ def _selectActionBatch_prime(q_values_table, splice_idx, positions, greedy):
         end = splice_idx[i]
         q_values = q_values_table[first:end]
         pos = positions[first:end]
-
+        
         if greedy[i]:
             p0, a0 = np.where(q_values == np.amax(q_values))
             p = p0[0]
