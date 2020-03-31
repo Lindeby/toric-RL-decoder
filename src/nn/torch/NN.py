@@ -70,7 +70,7 @@ class NN_17(nn.Module):
         self.conv19 = nn.Conv2d(205, 204 , kernel_size=3, stride=1, padding=1)
         self.conv20 = nn.Conv2d(204, 200 , kernel_size=3, stride=1)
         output_from_conv = conv_to_fully_connected(system_size, 3, 0, 1)
-        self.linear1 = nn.Linear(200*int(output_from_conv)**2, number_of_actions)
+        self.linear1 = nn.Linear(200*int(output_from_conv)**2, 3)
         self.device = device
 
     def forward(self, x):
