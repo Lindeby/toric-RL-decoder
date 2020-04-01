@@ -170,7 +170,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
             mean_q_list[i]                  = np.round(mean_q_per_p_error, 3)
             P_l_list[i]                     = P_l
 
-        return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, N_fail, P_l
+        return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, N_fail, P_l_list
    
 
 from src.nn.torch.NN import NN_11
