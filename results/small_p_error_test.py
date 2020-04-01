@@ -231,6 +231,7 @@ if __name__ == "__main__":
     tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
     
     for i, p in enumerate(p_error):
+        print(ground_state_list[i], error_corrected_list[i], mean_q_list[i], failure_rate[i], asymptotic_fail[i], asymptotic_success[i], P_l[i])
         tb.add_scalar("Small p/Ground State Rate", ground_state_list[i], p)
         tb.add_scalar("Small p/Success Rate", error_corrected_list[i], p)
         tb.add_scalar("Small p/Mean Q", mean_q_list[i], p)
@@ -240,7 +241,5 @@ if __name__ == "__main__":
         tb.add_scalar("Small p/P_l", P_l[i], p)
         tb.add_scalar("Small p/Avg No Steps", average_number_of_steps_list[i], p)
         tb.add_scalar("Small p/P errors", p)
-
-
 
     tb.close()
