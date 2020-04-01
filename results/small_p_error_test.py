@@ -61,16 +61,17 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
         model.to(device)
         model.eval()
 
+        size = env_config["size"]
+
         # init matrices 
-        max_number_of_errors = 17
+        max_number_of_errors = size*size
         ground_state_list               = np.zeros(len(prediction_list_p_error))
         error_corrected_list            = np.zeros(len(prediction_list_p_error))
         average_number_of_steps_list    = np.zeros(len(prediction_list_p_error))
         mean_q_list                     = np.zeros(len(prediction_list_p_error))
         P_l_list                        = np.zeros(len(prediction_list_p_error))
 
-        size = env_config["size"]
-
+       
         cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":prediction_list_p_error[0]}
         env = gym.make(env, config=cfg)
 
@@ -179,7 +180,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 if __name__ == "__main__":
-    no_episodes = 2
+    no_episodes = 2000000
     p_error = [5e-2, 5e-3, 5e-4, 5e-5]
     device = 'cuda'
     size = 7
