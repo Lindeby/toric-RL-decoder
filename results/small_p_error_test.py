@@ -86,6 +86,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
             steps_counter           = 0
 
             for j in range(num_of_episodes):
+                print("p_error: {}, episode: {}".format(p_error, j))
                 num_of_steps_per_episode = 0
                 prev_action              = 0
                 terminal_state           = 0
@@ -238,5 +239,8 @@ if __name__ == "__main__":
         tb.add_scalar("Small p/Asymptotic Success", asymptotic_success[i], p)
         tb.add_scalar("Small p/P_l", P_l[i], p)
         tb.add_scalar("Small p/Avg No Steps", average_number_of_steps_list[i], p)
+        tb.add_scalar("Small p/P errors", p)
+
+
 
     tb.close()
