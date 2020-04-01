@@ -67,6 +67,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
         error_corrected_list            = np.zeros(len(prediction_list_p_error))
         average_number_of_steps_list    = np.zeros(len(prediction_list_p_error))
         mean_q_list                     = np.zeros(len(prediction_list_p_error))
+        P_l_list                        = np.zeros(len(prediction_list_p_error))
 
         size = env_config["size"]
 
@@ -167,6 +168,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
             ground_state_list[i]            =  1 - ground_state_change
             average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
             mean_q_list[i]                  = np.round(mean_q_per_p_error, 3)
+            P_l_list[i]                     = P_l
 
         return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, N_fail, P_l
    
