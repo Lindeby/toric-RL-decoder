@@ -228,18 +228,24 @@ if __name__ == "__main__":
     asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
 
 
-    tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
+    data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
     
-    for i, p in enumerate(p_error):
-        print(ground_state_list[i], error_corrected_list[i], mean_q_list[i], failure_rate[i], asymptotic_fail[i], asymptotic_success[i], P_l[i])
-        tb.add_scalar("Small p/Ground State Rate", ground_state_list[i], p)
-        tb.add_scalar("Small p/Success Rate", error_corrected_list[i], p)
-        tb.add_scalar("Small p/Mean Q", mean_q_list[i], p)
-        tb.add_scalar("Small p/Failure Rate", failure_rate[i], p)
-        tb.add_scalar("Small p/Asymptotic Fail", asymptotic_fail[i], p)
-        tb.add_scalar("Small p/Asymptotic Success", asymptotic_success[i], p)
-        tb.add_scalar("Small p/P_l", P_l[i], p)
-        tb.add_scalar("Small p/Avg No Steps", average_number_of_steps_list[i], p)
-        tb.add_scalar("Small p/P errors", p)
+    # save training settings in txt file 
+    np.savetxt("data/evaluation_size_{}.txt".format(size), data, header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
 
-    tb.close()
+    
+    # tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
+
+    # for i, p in enumerate(p_error):
+    #     print(ground_state_list[i], error_corrected_list[i], mean_q_list[i], failure_rate[i], asymptotic_fail[i], asymptotic_success[i], P_l[i])
+    #     tb.add_scalar("Small p/Ground State Rate", ground_state_list[i], p)
+    #     tb.add_scalar("Small p/Success Rate", error_corrected_list[i], p)
+    #     tb.add_scalar("Small p/Mean Q", mean_q_list[i], p)
+    #     tb.add_scalar("Small p/Failure Rate", failure_rate[i], p)
+    #     tb.add_scalar("Small p/Asymptotic Fail", asymptotic_fail[i], p)
+    #     tb.add_scalar("Small p/Asymptotic Success", asymptotic_success[i], p)
+    #     tb.add_scalar("Small p/P_l", P_l[i], p)
+    #     tb.add_scalar("Small p/Avg No Steps", average_number_of_steps_list[i], p)
+    #     tb.add_scalar("Small p/P errors", p)
+
+    # tb.close()
