@@ -181,7 +181,7 @@ import torch
 
 if __name__ == "__main__":
     no_episodes = 2000000
-    p_error = [5e-2, 5e-3, 5e-4, 5e-5]
+    p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
     device = 'cuda'
     size = 7
 
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
     
     # save training settings in txt file 
-    np.savetxt("data/evaluation_size_{}.txt".format(size), np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
+    np.savetxt("data/evaluation_size_{}_p_{}.txt".format(size, p_error[0]), np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
 
     
     # tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
