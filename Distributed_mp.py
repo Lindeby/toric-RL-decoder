@@ -32,9 +32,6 @@ def start_distributed_mp():
     learner_device           = 'cuda'
     learner_job_max_time     = 60*20 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
-    learner_eval_p_errors    = [0.1, 0.2, 0.3]
-    learner_eval_no_episodes = 10
-    learner_eval_freq        = 500 # -1 for no logging
    
     # Actor specific
     actor_max_actions_per_episode  = 75
@@ -70,6 +67,11 @@ def start_distributed_mp():
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
+
+    # Evaluator
+    eval_p_errors    = [0.1, 0.2, 0.3]
+    eval_no_episodes = 10
+    eval_freq        = 10 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
 
     #model = ResNet18
     model = NN_11
@@ -118,11 +120,17 @@ def start_distributed_mp():
         "learner_io_queue"              :learner_io_queue,
         "io_learner_queue"              :io_learner_queue,
         "shared_mem_weights"            :shared_mem_weights,
-        "shared_mem_weight_id"          :shared_mem_weight_id,
-        "learner_eval_p_errors"         :learner_eval_p_errors,
-        "learner_eval_no_episodes"      :learner_eval_no_episodes,
-        "learner_eval_freq"             :learner_eval_freq
+        "shared_mem_weight_id"          :shared_mem_weight_id
     }
+
+    evaluator_args = {
+        "eval_p_errors"                 :eval_p_errors,
+        "eval_no_episodes"              :eval_no_episodes,
+        "eval_freq"                     :eval_freq,
+        "model"                         :model,
+        "model_no_params"               :no_params,
+        "model_config"                  :model_config
+        }
     
     
     """

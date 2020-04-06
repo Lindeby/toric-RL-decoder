@@ -5,12 +5,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 from torch import from_numpy
-could_import_tb=True
-try:
-    from torch.utils.tensorboard import SummaryWriter
-except:
-    could_import_tb=False
-    print("Could not import tensorboard. No logging will occur.")
 
 # other
 import numpy as np
@@ -40,14 +34,6 @@ def learner(args):
     grid_shift      = int(env_config["size"]/2)
     policy_update   = args["policy_update"]
     save_date       = args["save_date"]
-
-    # eval params
-    eval_p_errors       = args["learner_eval_p_errors"]
-    eval_no_episodes    = args["learner_eval_no_episodes"]
-    eval_freq           = args["learner_eval_freq"]
-    count_to_eval       = 0
-    if eval_freq != -1 and could_import_tb:
-        tb = SummaryWriter("runs/{}/Learner/".format(save_date))
 
     # Comms
     learner_io_queue        = args["learner_io_queue"]
@@ -92,7 +78,6 @@ def learner(args):
     # Start training
     print("Learner: starting training loop.")
     for t in range(train_steps):
-        #print("Learner timestep: {}".format(t))
         # Time guard
         if time.time() - start_time > args["job_max_time"]:
             print("Learner: time exceeded, aborting...")
@@ -103,7 +88,6 @@ def learner(args):
             performence_stop = time.time()
             performence_elapsed = performence_stop - preformance_start
             performence_transitions = policy_update * batch_size
-            #print("consuming ",performence_transitions/performence_elapsed, "tranistions/s")
             preformance_start = time.time()
             params = parameters_to_vector(policy_net.parameters()) # get policy weights
             vector_to_parameters(params, target_net.parameters())  # load policy weights to target
@@ -114,8 +98,6 @@ def learner(args):
                 shared_mem_weights[:]        = params.detach().cpu().numpy()
                 shared_mem_weight_id.value += 1
 
-        if io_learner_queue.qsize == 0:
-            print("Learner waiting")
         data = io_learner_queue.get()
         batch_state, batch_actions, batch_reward, batch_next_state, batch_terminal, weights, indices = dataToBatch(data, device)
         
@@ -127,7 +109,6 @@ def learner(args):
         policy_output = policy_output.gather(1, batch_actions.view(-1, 1)).squeeze(1)
 
         # compute target network output
-        # target_output = predictMax(target_net, batch_next_state, len(batch_next_state),grid_shift, system_size, device)
         target_output = predictMaxOptimized(target_net, batch_next_state, grid_shift, system_size, device)
         target_output = target_output.to(device)
 
@@ -152,31 +133,6 @@ def learner(args):
         p_update = (indices, priorities)
         msg = ("priorities", p_update)
         learner_io_queue.put(msg)
-
-
-        # evaluations of policy
-        count_to_eval += 1
-        if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
-            count_to_eval = 0
-            success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
-                                                                            'toric-code-v0',
-                                                                            env_config,
-                                                                            int(system_size/2),
-                                                                            device,
-                                                                            eval_p_errors,
-                                                                            num_of_episodes=eval_no_episodes,
-                                                                            epsilon=0.0,
-                                                                            num_of_steps=75,
-                                                                            plot_one_episode=False, 
-                                                                            minimum_nbr_of_qubit_errors=0)
-            for i, p in enumerate(eval_p_errors):
-                tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
-                tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
-                tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
-
-    # close tensorboard writer
-    if eval_freq != -1 and could_import_tb:
-        tb.close()
 
     # training done
     # save network
