@@ -30,7 +30,7 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*20 #2 hours 58min
+    learner_job_max_time     = 60*60*2-30 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 10
@@ -39,7 +39,7 @@ def start_distributed_mp():
     # Actor specific
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 100
-    actor_no_envs       = 100           #number of envs/actor
+    actor_no_envs       = 10           #number of envs/actor
     no_cuda_actors      = 1
     no_cpu_actors       = 0
     actor_no_actors     = no_cuda_actors + no_cpu_actors
@@ -48,7 +48,7 @@ def start_distributed_mp():
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
-    env_p_error_interval_increase = 0.001
+    env_p_error_interval_increase = 0.000001
     env_p_error_strategy          = 'random' # either {'random', 'linear'}
     
     # Replay Memory specific
@@ -63,16 +63,17 @@ def start_distributed_mp():
     log_priority_sample_interval_size   = 0.01
     
     # Shared
-    batch_size = 32
+    batch_size = 8
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":5,
+    env_config = {  "size":9,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
 
-    #model = ResNet18
-    model = NN_11
+    model = ResNet18
+    #model = NN_11
+    #model = NN_17
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": env_config["size"]
                     }
