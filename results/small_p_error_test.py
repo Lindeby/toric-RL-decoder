@@ -10,8 +10,8 @@ from copy import deepcopy
 # Main test params
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = int(100000)
-checkpoints = 10
+no_episodes = int(10)
+checkpoints = 1
 runs_before_save = int(no_episodes/max(checkpoints, 1))
 main_device = 'cpu'
 main_size = 5
@@ -225,14 +225,14 @@ if __name__ == "__main__":
         ground_state_conserved_theory = 0.9999999273112429 # see combinatorics file
         ground_state_failed_theory = 7.268875712609422e-08
         
-    global_error_corrected_list = []
-    global_ground_state_list = []
-    global_average_number_of_steps_list = []
-    global_mean_q_list = []
-    global_number_of_failed_syndroms_list = []
-    global_n_fail = []
-    global_P_l = []
-    global_failed_syndromes = []
+    # global_error_corrected_list = []
+    # global_ground_state_list = []
+    # global_average_number_of_steps_list = []
+    # global_mean_q_list = []
+    # global_number_of_failed_syndroms_list = []
+    # global_n_fail = []
+    # global_P_l = []
+    # global_failed_syndromes = []
 
     for cp in range(checkpoints):
         error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, n_fail, P_l, failed_syndromes = prediction_smart(model=model,
@@ -251,20 +251,20 @@ if __name__ == "__main__":
                         print_Q_values=False)
 
 
-        global_error_corrected_list += error_corrected_list
-        global_ground_state_list += ground_state_list
-        global_average_number_of_steps_list += average_number_of_steps_list
-        global_mean_q_list += mean_q_list
-        global_number_of_failed_syndroms_list += number_of_failed_syndroms_list
-        global_n_fail += n_fail
-        global_P_l += P_l
-        global_failed_syndromes += failed_syndromes
+        # global_error_corrected_list += error_corrected_list
+        # global_ground_state_list += ground_state_list
+        # global_average_number_of_steps_list += average_number_of_steps_list
+        # global_mean_q_list += mean_q_list
+        # global_number_of_failed_syndroms_list += number_of_failed_syndroms_list
+        # global_n_fail += n_fail
+        # global_P_l += P_l
+        # global_failed_syndromes += failed_syndromes
 
-        failure_rate = 1 - np.array(global_ground_state_list)
+        failure_rate = 1 - np.array(ground_state_list)
         asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
-        asymptotic_success = (np.array(global_ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
+        asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
 
-        data = np.array([p_error, global_ground_state_list, global_error_corrected_list, global_mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, global_P_l, global_average_number_of_steps_list])
+        data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
         
         with open("data/checkpoints/{}/size_{}_p_{}_id_{}_checkpoint{}.txt".format(main_size, main_size, p_error[0], p_id, cp), 'a') as f:
             np.savetxt(f, np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
