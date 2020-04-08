@@ -121,8 +121,6 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
 
                     gs = env.evalGroundState()
 
-
-
                 start_state = deepcopy(qubit_matrix)
 
                 number_of_qubit_flips = np.sum((env.qubit_matrix != 0))
@@ -161,11 +159,12 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 
                 # update groundstate
                 ground_state[j] = env.evalGroundState()
+                if not terminal_state and not ground_state[j]:
+                    failed_syndromes.append(start_state)
 
                 # count failed runs 
                 if ground_state[j] == False:
                     number_of_failed_syndroms_list[2, number_of_qubit_flips] += 1
-                    failed_syndroms.append(start_state)
                 elif ground_state[j] == True:
                     number_of_failed_syndroms_list[1, number_of_qubit_flips] += 1
 
