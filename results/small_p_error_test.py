@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/adam/Documents/school/thesis/toric-RL-decoder')
+# sys.path.append('/home/adam/Documents/school/thesis/toric-RL-decoder')
 from src.util import incrementalMean
 from src.util_actor import selectAction
 import gym, gym_ToricCode
@@ -7,10 +7,11 @@ import numpy as np
 
 # Main test params
 p_id = 0
+p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
+net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
 no_episodes = 100000/4
 checkpoints = 5
 runs_before_save = int(no_episodes/checkpoints)
-p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 main_device = 'cuda'
 main_size = 5
 
@@ -203,7 +204,7 @@ if __name__ == "__main__":
                     }
     
     model = NN_11(model_config["system_size"], 3, main_device)
-    model.load_state_dict(torch.load("network/latest/Size_5_NN_11_17_Mar_2020_22_33_59.pt", map_location=main_device))
+    model.load_state_dict(torch.load(net_path, map_location=main_device))
     model.eval()
 
     if main_size == 5:
