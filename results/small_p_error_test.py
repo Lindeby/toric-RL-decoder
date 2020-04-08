@@ -4,6 +4,7 @@ from src.util import incrementalMean
 from src.util_actor import selectAction
 import gym, gym_ToricCode
 import numpy as np
+from copy import deepcopy
 
 # Main test params
 p_id = 0
@@ -112,17 +113,17 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                     state = env.createSyndromOpt(qubit_matrix)                                              # create the new syndrome
                     terminal_state = env.isTerminalState(state)
 
+                    # overwrite the envs data with our custome generated errors
                     env.qubit_matrix = qubit_matrix
                     env.state = state
-                    start_state = qubit_matrix
 
                     # env.plotToricCode(state, "testing")
 
                     gs = env.evalGroundState()
 
-                # overwrite the envs data with our custome generated errors
 
 
+                start_state = deepcopy(qubit_matrix)
 
                 number_of_qubit_flips = np.sum((env.qubit_matrix != 0))
 
