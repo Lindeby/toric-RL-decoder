@@ -12,7 +12,7 @@ net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
 no_episodes = int(100000/4)
 checkpoints = 10
 runs_before_save = int(no_episodes/max(checkpoints, 1))
-main_device = 'cuda'
+main_device = 'cpu'
 main_size = 5
 
 def generateRandomError(matrix, p_error):
@@ -102,21 +102,27 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 prev_action              = 0
                 terminal_state           = 0
 
-                state = env.reset(p_error=p_error)
                 terminal_state = True
+                gs = True
                 # custom reset function
-                while terminal_state:
-                    qubit_matrix = np.zeros(state.shape, dtype=np.int)                                               # create new qubit_matrix
+                while terminal_state or gs:
+                    state = env.reset(p_error=p_error)
+                    qubit_matrix = np.zeros(state.shape, dtype=np.int)                                      # create new qubit_matrix
                     qubit_matrix = generateNPlusQRandomErrors(nbr_of_qubit_errors, p_error, qubit_matrix)   # apply new errors
                     state = env.createSyndromOpt(qubit_matrix)                                              # create the new syndrome
                     terminal_state = env.isTerminalState(state)
 
-                # overwrite the envs data with our custome generated errors
-                env.qubit_matrix = qubit_matrix
-                env.state = state
-                start_state = qubit_matrix
+                    env.qubit_matrix = qubit_matrix
+                    env.state = state
+                    start_state = qubit_matrix
 
-                # env.plotToricCode(state, "testing")
+                    # env.plotToricCode(state, "testing")
+
+                    gs = env.evalGroundState()
+
+                # overwrite the envs data with our custome generated errors
+
+
 
                 number_of_qubit_flips = np.sum((env.qubit_matrix != 0))
 
