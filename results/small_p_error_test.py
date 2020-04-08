@@ -1,5 +1,5 @@
 import sys
-# sys.path.append('/home/adam/Documents/school/thesis/toric-RL-decoder')
+sys.path.append('/home/adam/Documents/school/thesis/toric-RL-decoder')
 from src.util import incrementalMean
 from src.util_actor import selectAction
 import gym, gym_ToricCode
@@ -9,10 +9,10 @@ import numpy as np
 p_id = 0
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = 100000/4
-checkpoints = 5
-runs_before_save = int(no_episodes/checkpoints)
-main_device = 'cuda'
+no_episodes = int(2)
+checkpoints = 1
+runs_before_save = int(no_episodes/max(checkpoints, 1))
+main_device = 'cpu'
 main_size = 5
 
 def generateRandomError(matrix, p_error):
