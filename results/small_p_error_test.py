@@ -5,6 +5,14 @@ from src.util_actor import selectAction
 import gym, gym_ToricCode
 import numpy as np
 
+# Main test params
+p_id = 0
+no_episodes = 100000/4
+checkpoints = 5
+runs_before_save = int(no_episodes/checkpoints)
+p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
+main_device = 'cuda'
+main_size = 5
 
 def generateRandomError(matrix, p_error):
     qubits = np.random.uniform(0, 1, size=(2, matrix.shape[1], matrix.shape[2]))
@@ -183,15 +191,9 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 if __name__ == "__main__":
-    p_id = 0
-    no_episodes = 100000/4
-    checkpoints = 5
-    runs_before_save = int(no_episodes/checkpoints)
-    p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
-    device = 'cuda'
-    size = 5
 
-    env_config = {  "size": size,
+
+    env_config = {  "size": main_size,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
                 }
@@ -200,17 +202,17 @@ if __name__ == "__main__":
                     "number_of_actions": env_config["size"]
                     }
     
-    model = NN_11(model_config["system_size"], 3, device)
-    model.load_state_dict(torch.load("network/latest/Size_5_NN_11_17_Mar_2020_22_33_59.pt", map_location=device))
+    model = NN_11(model_config["system_size"], 3, main_device)
+    model.load_state_dict(torch.load("network/latest/Size_5_NN_11_17_Mar_2020_22_33_59.pt", map_location=main_device))
     model.eval()
 
-    if size == 5:
+    if main_size == 5:
         ground_state_conserved_theory = 0.9995275888133031 # see combinatorics file
         ground_state_failed_theory = 0.000472411186696901
-    elif size == 7:
+    elif main_size == 7:
         ground_state_conserved_theory = 0.9999936414812806 # see combinatorics file
         ground_state_failed_theory = 6.35851871947911e-06
-    elif size == 9:
+    elif main_size == 9:
         ground_state_conserved_theory = 0.9999999273112429 # see combinatorics file
         ground_state_failed_theory = 7.268875712609422e-08
 
@@ -219,7 +221,7 @@ if __name__ == "__main__":
                         env='toric-code-v0',
                         env_config=env_config, 
                         grid_shift=int(env_config["size"]/2), 
-                        device=device, 
+                        device=main_device, 
                         prediction_list_p_error=p_error, 
                         num_of_episodes=runs_before_save, 
                         epsilon=0.0, 
@@ -236,10 +238,10 @@ if __name__ == "__main__":
 
         data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
         
-        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_{}.txt".format(size, p_id, size, p_error[0], cp), 'a') as f:
+        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
             np.savetxt(f, np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
         
-        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(size, p_id, size, p_error[0], cp), 'a') as f:
+        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
             np.savetxt(f, np.transpose(np.array(failed_syndromes)), header='failed_syndromes')
 
 
