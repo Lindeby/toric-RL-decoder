@@ -4,17 +4,19 @@ from src.util import incrementalMean
 from src.util_actor import selectAction
 import gym, gym_ToricCode
 import numpy as np
+from datetime import datetime
 from copy import deepcopy
 
 # Main test params
-p_id = 0
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = int(100000/4)
+no_episodes = int(100000)
 checkpoints = 10
 runs_before_save = int(no_episodes/max(checkpoints, 1))
 main_device = 'cpu'
 main_size = 5
+p_id = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
+
 
 def generateRandomError(matrix, p_error):
     qubits = np.random.uniform(0, 1, size=(2, matrix.shape[1], matrix.shape[2]))
@@ -222,6 +224,15 @@ if __name__ == "__main__":
     elif main_size == 9:
         ground_state_conserved_theory = 0.9999999273112429 # see combinatorics file
         ground_state_failed_theory = 7.268875712609422e-08
+        
+    global_error_corrected_list = []
+    global_ground_state_list = []
+    global_average_number_of_steps_list = []
+    global_mean_q_list = []
+    global_number_of_failed_syndroms_list = []
+    global_n_fail = []
+    global_P_l = []
+    global_failed_syndromes = []
 
     for cp in range(checkpoints):
         error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, n_fail, P_l, failed_syndromes = prediction_smart(model=model,
@@ -239,20 +250,30 @@ if __name__ == "__main__":
                         nbr_of_qubit_errors=int(env_config["size"]/2)+1,
                         print_Q_values=False)
 
-        failure_rate = 1 - np.array(ground_state_list)
-        asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
-        asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
 
-        data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
+        global_error_corrected_list += error_corrected_list
+        global_ground_state_list += ground_state_list
+        global_average_number_of_steps_list += average_number_of_steps_list
+        global_mean_q_list += mean_q_list
+        global_number_of_failed_syndroms_list += number_of_failed_syndroms_list
+        global_n_fail += n_fail
+        global_P_l += P_l
+        global_failed_syndromes += failed_syndromes
+
+        failure_rate = 1 - np.array(global_ground_state_list)
+        asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
+        asymptotic_success = (np.array(global_ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
+
+        data = np.array([p_error, global_ground_state_list, global_error_corrected_list, global_mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, global_P_l, global_average_number_of_steps_list])
         
-        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
+        with open("data/checkpoints/{}/size_{}_p_{}_id_{}_checkpoint{}.txt".format(main_size, main_size, p_error[0], p_id, cp), 'a') as f:
             np.savetxt(f, np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
         
         fs = []
         for fail in failed_syndromes:
             fs.append(fail.flatten())
 
-        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
+        with open("data/checkpoints/{}/size_{}_p_{}_id_{}_checkpoint{}_failed_syndromes.txt".format(main_size, main_size, p_error[0], p_id, cp), 'a') as f:
             np.savetxt(f, np.array(fs), header='failed_syndromes')
 
 
