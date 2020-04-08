@@ -53,7 +53,7 @@ def generateNPlusQRandomErrors(q, p_error, qubit_matrix):
 
 
 def prediction_smart(model, env, env_config, grid_shift, device, prediction_list_p_error, num_of_episodes=1, epsilon=0.0, num_of_steps=50, plot_one_episode=False, 
-        show_network=False, show_plot=False, nbr_of_qubit_errors=0, print_Q_values=False):
+        show_network=False, show_plot=False, nbr_of_qubit_errors=0, print_Q_values=False, checkpoint=10000):
 
         def comb(n, k):
             """
@@ -82,7 +82,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
         average_number_of_steps_list    = np.zeros(len(prediction_list_p_error))
         mean_q_list                     = np.zeros(len(prediction_list_p_error))
         P_l_list                        = np.zeros(len(prediction_list_p_error))
-        failed_syndroms = []
+        failed_syndromes = []
 
        
         cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":prediction_list_p_error[0]}
@@ -119,7 +119,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                     env.qubit_matrix = qubit_matrix
                     env.state = state
 
-                    # env.plotToricCode(state, "testing")
+                    env.plotToricCode(state, "testing")
 
                 start_state = deepcopy(qubit_matrix)
 
@@ -167,6 +167,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                     number_of_failed_syndroms_list[2, number_of_qubit_flips] += 1
                 elif ground_state[j] == True:
                     number_of_failed_syndroms_list[1, number_of_qubit_flips] += 1
+
 
             n_fail = np.zeros(max_number_of_errors)
             for k, item in enumerate(number_of_failed_syndroms_list[2,:]):
