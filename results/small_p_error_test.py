@@ -226,7 +226,7 @@ if __name__ == "__main__":
                         prediction_list_p_error=p_error, 
                         num_of_episodes=runs_before_save, 
                         epsilon=0.0, 
-                        num_of_steps=1, 
+                        num_of_steps=75, 
                         plot_one_episode=False, 
                         show_network=False,
                         show_plot=False,
