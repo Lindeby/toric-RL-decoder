@@ -108,7 +108,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 terminal_state = True
                 gs = True
                 # custom reset function
-                while terminal_state or gs:
+                while terminal_state:
                     state = env.reset(p_error=p_error)
                     qubit_matrix = np.zeros(state.shape, dtype=np.int)                                      # create new qubit_matrix
                     qubit_matrix = generateNPlusQRandomErrors(nbr_of_qubit_errors, p_error, qubit_matrix)   # apply new errors
@@ -120,8 +120,6 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                     env.state = state
 
                     # env.plotToricCode(state, "testing")
-
-                    gs = env.evalGroundState()
 
                 start_state = deepcopy(qubit_matrix)
 
