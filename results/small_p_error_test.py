@@ -70,6 +70,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
         average_number_of_steps_list    = np.zeros(len(prediction_list_p_error))
         mean_q_list                     = np.zeros(len(prediction_list_p_error))
         P_l_list                        = np.zeros(len(prediction_list_p_error))
+        failed_syndroms = []
 
        
         cfg = {"size":env_config["size"], "min_qubit_errors":env_config["min_qubit_errors"], "p_error":prediction_list_p_error[0]}
@@ -104,6 +105,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 # overwrite the envs data with our custome generated errors
                 env.qubit_matrix = qubit_matrix
                 env.state = state
+                start_state = qubit_matrix
 
                 env.plotToricCode(state, "testing")
 
@@ -147,6 +149,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 # count failed runs 
                 if ground_state[j] == False:
                     number_of_failed_syndroms_list[2, number_of_qubit_flips] += 1
+                    failed_syndroms.append(start_state)
                 elif ground_state[j] == True:
                     number_of_failed_syndroms_list[1, number_of_qubit_flips] += 1
 
@@ -172,7 +175,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
             mean_q_list[i]                  = np.round(mean_q_per_p_error, 3)
             P_l_list[i]                     = P_l
 
-        return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, N_fail, P_l_list
+        return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, N_fail, P_l_list, failed_syndroms
    
 
 from src.nn.torch.NN import NN_11
@@ -180,10 +183,13 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 
 if __name__ == "__main__":
-    no_episodes = 2000000
+    p_id = 0
+    no_episodes = 100000/4
+    checkpoints = 5
+    runs_before_save = int(no_episodes/checkpoints)
     p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
     device = 'cuda'
-    size = 7
+    size = 5
 
     env_config = {  "size": size,
                     "min_qubit_errors": 0,
@@ -195,24 +201,8 @@ if __name__ == "__main__":
                     }
     
     model = NN_11(model_config["system_size"], 3, device)
-    model.load_state_dict(torch.load("network/mp/Size_7_NN_11_random_18_Mar_2020_18_17_52.pt", map_location='cpu'))
+    model.load_state_dict(torch.load("network/latest/Size_5_NN_11_17_Mar_2020_22_33_59.pt", map_location=device))
     model.eval()
-
-
-    error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, n_fail, P_l = prediction_smart(model=model,
-                    env='toric-code-v0',
-                    env_config=env_config, 
-                    grid_shift=int(env_config["size"]/2), 
-                    device=device, 
-                    prediction_list_p_error=p_error, 
-                    num_of_episodes=no_episodes, 
-                    epsilon=0.0, 
-                    num_of_steps=75, 
-                    plot_one_episode=False, 
-                    show_network=False,
-                    show_plot=False,
-                    nbr_of_qubit_errors=int(env_config["size"]/2)+1,
-                    print_Q_values=False)
 
     if size == 5:
         ground_state_conserved_theory = 0.9995275888133031 # see combinatorics file
@@ -224,15 +214,47 @@ if __name__ == "__main__":
         ground_state_conserved_theory = 0.9999999273112429 # see combinatorics file
         ground_state_failed_theory = 7.268875712609422e-08
 
-    failure_rate = 1 - np.array(ground_state_list)
-    asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
-    asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
+    for cp in range(checkpoints):
+        error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, n_fail, P_l, failed_syndromes = prediction_smart(model=model,
+                        env='toric-code-v0',
+                        env_config=env_config, 
+                        grid_shift=int(env_config["size"]/2), 
+                        device=device, 
+                        prediction_list_p_error=p_error, 
+                        num_of_episodes=runs_before_save, 
+                        epsilon=0.0, 
+                        num_of_steps=75, 
+                        plot_one_episode=False, 
+                        show_network=False,
+                        show_plot=False,
+                        nbr_of_qubit_errors=int(env_config["size"]/2)+1,
+                        print_Q_values=False)
+
+        failure_rate = 1 - np.array(ground_state_list)
+        asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
+        asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
+
+        data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
+        
+        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_{}.txt".format(size, p_id, size, p_error[0], cp), 'a') as f:
+            np.savetxt(f, np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
+        
+        with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(size, p_id, size, p_error[0], cp), 'a') as f:
+            np.savetxt(f, np.transpose(np.array(failed_syndromes)), header='failed_syndromes')
 
 
-    data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
+
+
+    # failure_rate = 1 - np.array(ground_state_list)
+    # asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
+    # asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
+
+
+    # data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
     
     # save training settings in txt file 
-    np.savetxt("data/evaluation_size_{}_p_{}.txt".format(size, p_error[0]), np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
+    # np.savetxt("data/evaluation_id{}_size_{}_p_{}.txt".format(p_id, size, p_error[0]), np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
+    # np.savetxt("data/evaluation_id{}size_{}_p_{}_failed_syndromes.txt".format(p_id, size, p_id, size, p_error[0], cp), np.transpose(np.array(failed_syndromes)), header='failed_syndromes')
 
     
     # tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
