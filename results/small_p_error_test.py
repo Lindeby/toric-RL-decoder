@@ -9,10 +9,10 @@ import numpy as np
 p_id = 0
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = int(2)
-checkpoints = 1
+no_episodes = int(100000/4)
+checkpoints = 5
 runs_before_save = int(no_episodes/max(checkpoints, 1))
-main_device = 'cpu'
+main_device = 'cuda'
 main_size = 5
 
 def generateRandomError(matrix, p_error):
@@ -242,8 +242,12 @@ if __name__ == "__main__":
         with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
             np.savetxt(f, np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
         
+        fs = []
+        for fail in failed_syndromes:
+            fs.append(fail.flatten())
+
         with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
-            np.savetxt(f, np.transpose(np.array(failed_syndromes)), header='failed_syndromes')
+            np.savetxt(f, np.transpose(np.array(fs)), header='failed_syndromes')
 
 
 
