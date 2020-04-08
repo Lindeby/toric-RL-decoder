@@ -10,7 +10,7 @@ p_id = 0
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
 no_episodes = int(100000/4)
-checkpoints = 5
+checkpoints = 10
 runs_before_save = int(no_episodes/max(checkpoints, 1))
 main_device = 'cuda'
 main_size = 5
@@ -116,7 +116,7 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 env.state = state
                 start_state = qubit_matrix
 
-                env.plotToricCode(state, "testing")
+                # env.plotToricCode(state, "testing")
 
                 number_of_qubit_flips = np.sum((env.qubit_matrix != 0))
 
@@ -226,7 +226,7 @@ if __name__ == "__main__":
                         prediction_list_p_error=p_error, 
                         num_of_episodes=runs_before_save, 
                         epsilon=0.0, 
-                        num_of_steps=75, 
+                        num_of_steps=1, 
                         plot_one_episode=False, 
                         show_network=False,
                         show_plot=False,
@@ -247,7 +247,7 @@ if __name__ == "__main__":
             fs.append(fail.flatten())
 
         with open("data/checkpoints/{}/cp_id{}_size_{}_p_{}_failed_syndromes_{}.txt".format(main_size, p_id, main_size, p_error[0], cp), 'a') as f:
-            np.savetxt(f, np.transpose(np.array(fs)), header='failed_syndromes')
+            np.savetxt(f, np.array(fs), header='failed_syndromes')
 
 
 
