@@ -10,10 +10,10 @@ from copy import deepcopy
 # Main test params
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
 net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = int(10)
+no_episodes = int(1000)
 checkpoints = 1
 runs_before_save = int(no_episodes/max(checkpoints, 1))
-main_device = 'cpu'
+main_device = 'cuda'
 main_size = 5
 p_id = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
 
@@ -106,7 +106,6 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 terminal_state           = 0
 
                 terminal_state = True
-                gs = True
                 # custom reset function
                 while terminal_state:
                     state = env.reset(p_error=p_error)
@@ -118,8 +117,6 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                     # overwrite the envs data with our custome generated errors
                     env.qubit_matrix = qubit_matrix
                     env.state = state
-
-                    # env.plotToricCode(state, "testing")
 
                 start_state = deepcopy(qubit_matrix)
 
@@ -159,12 +156,11 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
                 
                 # update groundstate
                 ground_state[j] = env.evalGroundState()
-                if not terminal_state and not ground_state[j]:
-                    failed_syndromes.append(start_state)
 
                 # count failed runs 
                 if ground_state[j] == False:
                     number_of_failed_syndroms_list[2, number_of_qubit_flips] += 1
+                    failed_syndromes.append(start_state)
                 elif ground_state[j] == True:
                     number_of_failed_syndroms_list[1, number_of_qubit_flips] += 1
 
@@ -183,8 +179,8 @@ def prediction_smart(model, env, env_config, grid_shift, device, prediction_list
             p_q     = comb(n,q) * p_conf 
             P_l     = p_q * N_fail / num_of_episodes
 
-            success_rate                    = (num_of_episodes - np.sum(error_corrected)) / num_of_episodes
-            error_corrected_list[i]         = success_rate            
+            success_rate                    = (num_of_episodes - np.sum(~error_corrected)) / num_of_episodes
+            error_corrected_list[i]         = success_rate
             ground_state_change             = (num_of_episodes - np.sum(ground_state)) / num_of_episodes
             ground_state_list[i]            =  1 - ground_state_change
             average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
@@ -224,14 +220,6 @@ if __name__ == "__main__":
         ground_state_conserved_theory = 0.9999999273112429 # see combinatorics file
         ground_state_failed_theory = 7.268875712609422e-08
         
-    # global_error_corrected_list = []
-    # global_ground_state_list = []
-    # global_average_number_of_steps_list = []
-    # global_mean_q_list = []
-    # global_number_of_failed_syndroms_list = []
-    # global_n_fail = []
-    # global_P_l = []
-    # global_failed_syndromes = []
 
     for cp in range(checkpoints):
         error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, number_of_failed_syndroms_list, n_fail, P_l, failed_syndromes = prediction_smart(model=model,
@@ -250,15 +238,6 @@ if __name__ == "__main__":
                         print_Q_values=False)
 
 
-        # global_error_corrected_list += error_corrected_list
-        # global_ground_state_list += ground_state_list
-        # global_average_number_of_steps_list += average_number_of_steps_list
-        # global_mean_q_list += mean_q_list
-        # global_number_of_failed_syndroms_list += number_of_failed_syndroms_list
-        # global_n_fail += n_fail
-        # global_P_l += P_l
-        # global_failed_syndromes += failed_syndromes
-
         failure_rate = 1 - np.array(ground_state_list)
         asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
         asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
@@ -274,34 +253,3 @@ if __name__ == "__main__":
 
         with open("data/checkpoints/{}/size_{}_p_{}_id_{}_checkpoint{}_failed_syndromes.txt".format(main_size, main_size, p_error[0], p_id, cp), 'a') as f:
             np.savetxt(f, np.array(fs), header='failed_syndromes')
-
-
-
-
-    # failure_rate = 1 - np.array(ground_state_list)
-    # asymptotic_fail = (failure_rate-ground_state_failed_theory)/ground_state_failed_theory * 100
-    # asymptotic_success = (np.array(ground_state_list)-ground_state_conserved_theory)/ground_state_conserved_theory * 100
-
-
-    # data = np.array([p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list])
-    
-    # save training settings in txt file 
-    # np.savetxt("data/evaluation_id{}_size_{}_p_{}.txt".format(p_id, size, p_error[0]), np.transpose(data), header='p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list', delimiter=',', fmt="%s")
-    # np.savetxt("data/evaluation_id{}size_{}_p_{}_failed_syndromes.txt".format(p_id, size, p_id, size, p_error[0], cp), np.transpose(np.array(failed_syndromes)), header='failed_syndromes')
-
-    
-    # tb = SummaryWriter(log_dir='runs/evaluation/small_p_size_{}'.format(env_config["size"]))
-
-    # for i, p in enumerate(p_error):
-    #     print(ground_state_list[i], error_corrected_list[i], mean_q_list[i], failure_rate[i], asymptotic_fail[i], asymptotic_success[i], P_l[i])
-    #     tb.add_scalar("Small p/Ground State Rate", ground_state_list[i], p)
-    #     tb.add_scalar("Small p/Success Rate", error_corrected_list[i], p)
-    #     tb.add_scalar("Small p/Mean Q", mean_q_list[i], p)
-    #     tb.add_scalar("Small p/Failure Rate", failure_rate[i], p)
-    #     tb.add_scalar("Small p/Asymptotic Fail", asymptotic_fail[i], p)
-    #     tb.add_scalar("Small p/Asymptotic Success", asymptotic_success[i], p)
-    #     tb.add_scalar("Small p/P_l", P_l[i], p)
-    #     tb.add_scalar("Small p/Avg No Steps", average_number_of_steps_list[i], p)
-    #     tb.add_scalar("Small p/P errors", p)
-
-    # tb.close()
