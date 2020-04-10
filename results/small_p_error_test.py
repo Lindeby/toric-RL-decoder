@@ -9,8 +9,9 @@ from copy import deepcopy
 
 # Main test params
 p_error = [5e-2]#[5e-2, 5e-3, 5e-4, 5e-5]
-net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
-no_episodes = int(1000)
+# net_path = "network/converged/Size_5_NN_11_17_Mar_2020_22_33_59.pt"
+net_path = "network/converged/Size_7_NN_11_random_18_Mar_2020_18_17_52.pt"
+no_episodes = int(2000000)
 checkpoints = 1
 runs_before_save = int(no_episodes/max(checkpoints, 1))
 main_device = 'cuda'
