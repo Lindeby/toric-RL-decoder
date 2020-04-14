@@ -27,7 +27,7 @@ def start_distributed_mp():
     # To continue training, give path to state dict
     state_dict_path = None 
     if not state_dict_path == None: 
-        checkpoint = torch.load(state_dict_path)
+        checkpoint = torch.load(state_dict_path, map_location='cpu')
     else:
         checkpoint = None
 
@@ -93,7 +93,7 @@ def start_distributed_mp():
 
     # load checkpoint params
     if not state_dict_path == None: 
-        m.load_state_dict(checkpoint['model_state_dict'], map_location='cpu')
+        m.load_state_dict(checkpoint['model_state_dict'])
 
     params      = parameters_to_vector(m.parameters()).detach().numpy()
     no_params   = len(params)
