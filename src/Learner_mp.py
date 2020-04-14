@@ -92,8 +92,8 @@ def learner(args):
         with shared_mem_weights.get_lock():
             reader = np.frombuffer(shared_mem_weights.get_obj())
             np.copyto(weights, reader)
-        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), policy_net.parameters())
-        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), target_net.parameters())
+        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), policy_net.parameters())
+        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), target_net.parameters())
     
 
         
