@@ -2,8 +2,10 @@ from src.nn.torch.ResNet import ResNet18
 from src.nn.torch.NN import NN_11, NN_17
 from src.Actor_mp import actor
 from src.IO_mp import io
+from src.evaluator import evaluator
 from src.Learner_mp import learner
 from src.util_actor import calculateEpsilon
+import torch
 
 import numpy as np
 import multiprocessing as mp
@@ -23,14 +25,14 @@ except:
 def start_distributed_mp():
 
     # Setup
-    
+
     # Learner specific
     learner_training_steps   = 1000000
     learner_learning_rate    = 0.00025
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*20 #2 hours 58min
+    learner_job_max_time     = 60*60*2 - 60*20 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
    
     # Actor specific
@@ -69,17 +71,17 @@ def start_distributed_mp():
             }
 
     # Evaluator
-    eval_p_errors    = [0.1, 0.2, 0.3]
-    eval_no_episodes = 10
-    eval_freq        = 10 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
-
+    eval_p_errors    = [0.1, 0.15, 0.2]
+    eval_no_episodes = 20
+    eval_freq        = 100 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
+    evaluator_device = 'cpu'
     #model = ResNet18
     model = NN_11
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": env_config["size"]
                     }
 
-    # Pre-load initial network weights
+        
     if model == NN_11 or model == NN_17:
         m = model(model_config["system_size"], model_config["number_of_actions"], 'cpu')
     else: 
@@ -129,7 +131,13 @@ def start_distributed_mp():
         "eval_freq"                     :eval_freq,
         "model"                         :model,
         "model_no_params"               :no_params,
-        "model_config"                  :model_config
+        "model_config"                  :model_config,
+        "device"                        :evaluator_device,
+        "shared_mem_weights"            :shared_mem_weights,
+        "shared_mem_weight_id"          :shared_mem_weight_id,
+        "save_date"                     :learner_save_date,
+        "env_config"                    :env_config,
+        "policy_update"                 :learner_policy_update
         }
     
     
@@ -184,9 +192,10 @@ def start_distributed_mp():
 
     # log header to tensorboard
     if could_import_tb:
-        log("runs/{}/RunInfo/".format(learner_save_date), actor_args, learner_args, mem_args)
+        log("runs/{}/RunInfo/".format(learner_save_date), actor_args, learner_args, mem_args, evaluator_args)
 
     io_process = mp.Process(target=io, args=(mem_args,))
+    evaluator_process = mp.Process(target=evaluator, args=(evaluator_args,))
     actor_process = []    
     for i in range(actor_no_actors):
         if i < no_cuda_actors :
@@ -201,6 +210,7 @@ def start_distributed_mp():
         actor_process[i].start()
     
     io_process.start()
+    evaluator_process.start()
     learner(learner_args) 
     time.sleep(2)
     print("Training done.")
@@ -210,7 +220,7 @@ def start_distributed_mp():
     print("Script complete.")
     
         
-def log(path, actor, learner, memory):
+def log(path, actor, learner, memory, evaluator):
     tb_setup_string = ("env_size: {}  \n"
                     "learning_rate: {}  \n"
                     "learner_update_policy: {}  \n"
@@ -246,8 +256,8 @@ def log(path, actor, learner, memory):
                                                         learner["device"],
                                                         learner["job_max_time"],
                                                         learner["save_date"],
-                                                        learner["learner_eval_no_episodes"],
-                                                        learner["learner_eval_freq"],
+                                                        evaluator["eval_no_episodes"],
+                                                        evaluator["eval_freq"],
                                                         actor["max_actions_per_episode"],
                                                         actor["size_local_memory_buffer"],
                                                         actor["no_envs"],

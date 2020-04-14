@@ -103,8 +103,8 @@ def io(memory_args):
                 tb.add_histogram("Distribution/Actor Distribution", samples_actor)
                 tb.add_histogram("Distribution/Learner Distribution", samples_learner)
                 
-                print("Consuption per Second ", count_cons_trans/(t-stop_watch))
-                print("Generation per Second ", count_gen_trans/(t-stop_watch))
+                #print("Consuption per Second ", count_cons_trans/(t-stop_watch))
+                #print("Generation per Second ", count_gen_trans/(t-stop_watch))
                 stop_watch = time.time()
                 samples_actor    = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
                 samples_learner  = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
