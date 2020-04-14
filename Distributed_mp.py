@@ -38,7 +38,7 @@ def start_distributed_mp():
     # Actor specific
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 100
-    actor_no_envs       = 10           #number of envs/actor
+    actor_no_envs       = 100           #number of envs/actor
     no_cuda_actors      = 1
     no_cpu_actors       = 0
     actor_no_actors     = no_cuda_actors + no_cpu_actors
@@ -62,10 +62,10 @@ def start_distributed_mp():
     log_priority_sample_interval_size   = 0.01
     
     # Shared
-    batch_size = 8
+    batch_size = 32
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":7,
+    env_config = {  "size":5,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }

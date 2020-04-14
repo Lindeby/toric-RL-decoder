@@ -29,6 +29,8 @@ def evaluator(args):
     else:
         model = NN()
 
+    log = open("evaluator_log.txt","a")
+
     device = args["device"]
     
     # eval params
@@ -46,10 +48,18 @@ def evaluator(args):
     current_weight_id      = 0
     policy_update          = args["policy_update"]
     
-    print("evaluator started on device: {}".format(device))
-
+    write_out = "evaluator started on device: {}\n".format(device)
+    print(write_out)
+    log.write(write_out)
+    log.close()
+    
     if eval_freq != -1 and could_import_tb:
         tb = SummaryWriter("runs/{}/Evaluator/".format(save_date))
+        
+        log = open("evaluator_log.txt","a")
+        write_out = "logging = True \n"
+        log.write(write_out)
+        log.close()
 
         # load initial network weights
         weights = np.empty(model_no_params)
@@ -82,8 +92,12 @@ def evaluator(args):
                 new_weights = False
                 learning_step = current_weight_id * policy_update
                 vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), model.parameters())
-    
-                print("start evaluat of network_id: {}".format(current_weight_id))
+                
+                log = open("evaluator_log.txt","a")
+                write_out = "start evaluat of network_id: {}\n".format(current_weight_id)
+                print(write_out)
+                log.write(write_out)
+                log.close()
 
                 success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  model,
                                                                                 'toric-code-v0',

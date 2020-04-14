@@ -60,7 +60,12 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
         steps_counter           = 0
 
         for j in range(num_of_episodes):
-            print("error {}:{}".format(p_error, j))
+            
+            log = open("evaluator_log.txt","a")
+            write_out = "error {}:{}\n".format(p_error, j)
+            log.write(write_out)
+            print(write_out)
+            log.close()
             num_of_steps_per_episode = 0
             prev_action              = 0
             terminal_state           = 0
