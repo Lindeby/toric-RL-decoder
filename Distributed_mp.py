@@ -32,13 +32,13 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*60*2 - 60*20 #2 hours 58min
+    learner_job_max_time     = 60*10  #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
    
     # Actor specific
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 100
-    actor_no_envs       = 100           #number of envs/actor
+    actor_no_envs       = 10           #number of envs/actor
     no_cuda_actors      = 1
     no_cpu_actors       = 0
     actor_no_actors     = no_cuda_actors + no_cpu_actors
@@ -62,10 +62,10 @@ def start_distributed_mp():
     log_priority_sample_interval_size   = 0.01
     
     # Shared
-    batch_size = 32
+    batch_size = 8
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":5,
+    env_config = {  "size":7,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
@@ -73,7 +73,7 @@ def start_distributed_mp():
     # Evaluator
     eval_p_errors    = [0.1, 0.15, 0.2]
     eval_no_episodes = 20
-    eval_freq        = 100 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
+    eval_freq        = 10 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
     evaluator_device = 'cpu'
     #model = ResNet18
     model = NN_11
@@ -216,7 +216,9 @@ def start_distributed_mp():
     print("Training done.")
     for i in range(actor_no_actors):
         actor_process[i].terminate()
+    evaluator_process.terminate()
     io_process.terminate()
+    
     print("Script complete.")
     
         
