@@ -67,6 +67,9 @@ def learner(args):
         policy_net = policy_class()
         target_net = policy_class()
     
+    policy_net.to(device)
+    target_net.to(device)
+    
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
     optimizer = None
@@ -92,8 +95,7 @@ def learner(args):
         vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), policy_net.parameters())
         vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), target_net.parameters())
     
-    policy_net.to(device)
-    target_net.to(device)
+
         
     preformance_start = time.time()
     preformance_stop = None

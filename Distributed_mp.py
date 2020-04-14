@@ -26,10 +26,6 @@ def start_distributed_mp():
 
     # To continue training, give path to state dict
     state_dict_path = None 
-    if not state_dict_path == None: 
-        checkpoint = torch.load(state_dict_path, map_location='cpu')
-    else:
-        checkpoint = None
 
     
     # Learner specific
@@ -85,9 +81,14 @@ def start_distributed_mp():
                     "number_of_actions": env_config["size"]
                     }
 
+    if not state_dict_path == None: 
+        checkpoint = torch.load(state_dict_path, map_location=learner_device)
+    else:
+        checkpoint = None
+
     # Pre-load initial network weights
     if model == NN_11 or model == NN_17:
-        m = model(model_config["system_size"], model_config["number_of_actions"], 'cpu')
+        m = model(model_config["system_size"], model_config["number_of_actions"], learner_device)
     else: 
         m = model()
 
@@ -95,7 +96,7 @@ def start_distributed_mp():
     if not state_dict_path == None: 
         m.load_state_dict(checkpoint['model_state_dict'])
 
-    params      = parameters_to_vector(m.parameters()).detach().numpy()
+    params      = parameters_to_vector(m.parameters()).detach().cpu().numpy()
     no_params   = len(params)
     
     #Comm setup 
