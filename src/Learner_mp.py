@@ -54,29 +54,18 @@ def learner(args):
     io_learner_queue        = args["io_learner_queue"]
     shared_mem_weights      = args["shared_mem_weights"]
     shared_mem_weight_id    = args["shared_mem_weight_id"]
-
     
     # Init networks
     policy_class    = args["model"]
     policy_config   = args["model_config"] 
     model_no_params = args["model_no_params"]
+    checkpoint      = args["learner_checkpoint"]
     if policy_class == NN_11 or policy_class == NN_17:
         policy_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], device)
         target_net = policy_class(policy_config["system_size"], policy_config["number_of_actions"], device) 
     else:
         policy_net = policy_class()
         target_net = policy_class()
-    
-    # Load initial parameters
-    weights = np.empty(model_no_params)
-    with shared_mem_weights.get_lock():
-        reader = np.frombuffer(shared_mem_weights.get_obj())
-        np.copyto(weights, reader)
-    vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), policy_net.parameters())
-    vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), target_net.parameters())
-    policy_net.to(device)
-    target_net.to(device)
-    
     
     # define criterion and optimizer
     criterion = nn.MSELoss(reduction='none')
@@ -85,8 +74,27 @@ def learner(args):
         optimizer = optim.RMSprop(policy_net.parameters(), lr=args["learning_rate"])
     elif args["optimizer"] == 'Adam':    
         optimizer = optim.Adam(policy_net.parameters(), lr=args["learning_rate"])
-
     
+    # load checkpoint
+    if not checkpoint == None:
+        # Load checkpoints data (continue training)
+        policy_net.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        criterion = checkpoint["loss"]
+        params = parameters_to_vector(policy_net.parameters()) # get policy weights
+        vector_to_parameters(params, target_net.parameters())  # load policy weights to target
+    else:
+        # Load initial parameters from shared mem (new start)
+        weights = np.empty(model_no_params)
+        with shared_mem_weights.get_lock():
+            reader = np.frombuffer(shared_mem_weights.get_obj())
+            np.copyto(weights, reader)
+        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), policy_net.parameters())
+        vector_to_parameters(from_numpy(weights).type(torch.FloatTensor), target_net.parameters())
+    
+    policy_net.to(device)
+    target_net.to(device)
+        
     preformance_start = time.time()
     preformance_stop = None
     # Start training
@@ -155,24 +163,24 @@ def learner(args):
 
 
         # evaluations of policy
-        count_to_eval += 1
-        if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
-            count_to_eval = 0
-            success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
-                                                                            'toric-code-v0',
-                                                                            env_config,
-                                                                            int(system_size/2),
-                                                                            device,
-                                                                            eval_p_errors,
-                                                                            num_of_episodes=eval_no_episodes,
-                                                                            epsilon=0.0,
-                                                                            num_of_steps=75,
-                                                                            plot_one_episode=False, 
-                                                                            minimum_nbr_of_qubit_errors=0)
-            for i, p in enumerate(eval_p_errors):
-                tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
-                tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
-                tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
+        # count_to_eval += 1
+        # if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
+            # count_to_eval = 0
+            # success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
+                                                                            # 'toric-code-v0',
+                                                                            # env_config,
+                                                                            # int(system_size/2),
+                                                                            # device,
+                                                                            # eval_p_errors,
+                                                                            # num_of_episodes=eval_no_episodes,
+                                                                            # epsilon=0.0,
+                                                                            # num_of_steps=75,
+                                                                            # plot_one_episode=False, 
+                                                                            # minimum_nbr_of_qubit_errors=0)
+            # for i, p in enumerate(eval_p_errors):
+                # tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
+                # tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
+                # tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
 
     # close tensorboard writer
     if eval_freq != -1 and could_import_tb:
@@ -183,7 +191,11 @@ def learner(args):
     msg = ("terminate", None)
     learner_io_queue.put(msg)
     save_path = "runs/{}/Size_{}_{}_{}.pt".format(save_date, system_size, type(policy_net).__name__, save_date)
-    torch.save(policy_net.state_dict(), save_path)
+    torch.save({ "model_state_dict":policy_net.state_dict(),
+                 "optimizer_state_dict":optimizer.state_dict(),
+                 "loss": criterion
+                }, save_path)
+
     print("Saved network to {}".format(save_path))
     print("Total trainingsteps: {}".format(t))
      

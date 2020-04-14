@@ -10,7 +10,7 @@ import multiprocessing as mp
 from multiprocessing.sharedctypes import Array, Value
 from torch.nn.utils import parameters_to_vector
 from datetime import datetime
-import time
+import time, torch
 
 could_import_tb=True
 try:
@@ -23,6 +23,14 @@ except:
 def start_distributed_mp():
 
     # Setup
+
+    # To continue training, give path to state dict
+    state_dict_path = None 
+    if not state_dict_path == None: 
+        checkpoint = torch.load(state_dict_path)
+    else:
+        checkpoint = None
+
     
     # Learner specific
     learner_training_steps   = 1000000
@@ -82,6 +90,11 @@ def start_distributed_mp():
         m = model(model_config["system_size"], model_config["number_of_actions"], 'cpu')
     else: 
         m = model()
+
+    # load checkpoint params
+    if not state_dict_path == None: 
+        m.load_state_dict(checkpoint['model_state_dict'], map_location='cpu')
+
     params      = parameters_to_vector(m.parameters()).detach().numpy()
     no_params   = len(params)
     
@@ -91,11 +104,13 @@ def start_distributed_mp():
     io_learner_queue = mp.Queue()
     shared_mem_weight_id  = Value('i')
     shared_mem_weight_id.value = 0
+
+    # Write initial weights to shared memory
     shared_mem_weights    = Array('d', no_params)            # Shared memory for weights
     mem_reader = np.frombuffer(shared_mem_weights.get_obj()) # create memory reader for shared mem
     np.copyto(mem_reader, params)                            # Write params to shared mem
     
- 
+    del m # delete tmp model to load network params to free up mem
     
     """
         Learner Process
@@ -121,7 +136,8 @@ def start_distributed_mp():
         "shared_mem_weight_id"          :shared_mem_weight_id,
         "learner_eval_p_errors"         :learner_eval_p_errors,
         "learner_eval_no_episodes"      :learner_eval_no_episodes,
-        "learner_eval_freq"             :learner_eval_freq
+        "learner_eval_freq"             :learner_eval_freq,
+        "learner_checkpoint"            :checkpoint
     }
     
     
