@@ -38,7 +38,7 @@ def start_distributed_mp():
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 10
-    learner_eval_freq        = 500 # -1 for no logging
+    learner_eval_freq        = -1 # -1 for no logging
    
     # Actor specific
     actor_max_actions_per_episode  = 75

@@ -165,24 +165,24 @@ def learner(args):
 
 
         # evaluations of policy
-        # count_to_eval += 1
-        # if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
-            # count_to_eval = 0
-            # success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
-                                                                            # 'toric-code-v0',
-                                                                            # env_config,
-                                                                            # int(system_size/2),
-                                                                            # device,
-                                                                            # eval_p_errors,
-                                                                            # num_of_episodes=eval_no_episodes,
-                                                                            # epsilon=0.0,
-                                                                            # num_of_steps=75,
-                                                                            # plot_one_episode=False, 
-                                                                            # minimum_nbr_of_qubit_errors=0)
-            # for i, p in enumerate(eval_p_errors):
-                # tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
-                # tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
-                # tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
+        count_to_eval += 1
+        if eval_freq != -1 and could_import_tb and count_to_eval >= eval_freq:
+            count_to_eval = 0
+            success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  policy_net,
+                                                                            'toric-code-v0',
+                                                                            env_config,
+                                                                            int(system_size/2),
+                                                                            device,
+                                                                            eval_p_errors,
+                                                                            num_of_episodes=eval_no_episodes,
+                                                                            epsilon=0.0,
+                                                                            num_of_steps=75,
+                                                                            plot_one_episode=False, 
+                                                                            minimum_nbr_of_qubit_errors=0)
+            for i, p in enumerate(eval_p_errors):
+                tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
+                tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
+                tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
 
     # close tensorboard writer
     if eval_freq != -1 and could_import_tb:
