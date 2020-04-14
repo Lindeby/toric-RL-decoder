@@ -44,6 +44,38 @@ class NN_11(nn.Module):
         x = self.linear1(x)
         return x
 
+class NN_8(nn.Module):
+
+    def __init__(self, system_size, number_of_actions, device):
+        super(NN_8, self).__init__()
+        self.conv1 = nn.Conv2d(2, 256, kernel_size=3, stride=1)
+        self.conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(256, 240, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(240, 224, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(224, 220 , kernel_size=3, stride=1, padding=1)
+        self.conv6 = nn.Conv2d(220, 215 , kernel_size=3, stride=1, padding=1)
+        self.conv7 = nn.Conv2d(215, 205 , kernel_size=3, stride=1, padding=1)
+        self.conv8 = nn.Conv2d(205, 200 , kernel_size=3, stride=1)
+        output_from_conv = conv_to_fully_connected(system_size, 3, 0, 1)
+        self.linear1 = nn.Linear(200*int(output_from_conv)**2, 3)
+        self.device = device
+
+    def forward(self, x):
+        x = pad_circular(x, 1)
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.relu(self.conv5(x))
+        x = F.relu(self.conv6(x))
+        x = F.relu(self.conv7(x))
+        x = F.relu(self.conv8(x))
+        n_features = np.prod(x.size()[1:])
+        x = x.view(-1, n_features)
+        x = self.linear1(x)
+        return x
+
+
 
 class NN_17(nn.Module):
 

@@ -41,10 +41,10 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     model.eval()
 
     # init matrices 
-    ground_state_list = np.zeros(len(prediction_list_p_error))
-    error_corrected_list = np.zeros(len(prediction_list_p_error))
-    average_number_of_steps_list = np.zeros(len(prediction_list_p_error))
-    mean_q_list = np.zeros(len(prediction_list_p_error))
+    ground_state_list               = np.zeros(len(prediction_list_p_error))
+    error_corrected_list            = np.zeros(len(prediction_list_p_error))
+    average_number_of_steps_list    = np.zeros(len(prediction_list_p_error))
+    mean_q_list                     = np.zeros(len(prediction_list_p_error))
     failed_syndroms = []
     # failure_rate = 0
 
@@ -53,20 +53,20 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
     
     # loop through different p_error
     for i, p_error in enumerate(prediction_list_p_error):
-        ground_state = np.ones(num_of_episodes, dtype=bool)
-        error_corrected = np.zeros(num_of_episodes, dtype=bool)
-        mean_steps_per_p_error = 0
-        mean_q_per_p_error = 0
-        steps_counter = 0
+        ground_state            = np.ones(num_of_episodes, dtype=bool)
+        error_corrected         = np.zeros(num_of_episodes, dtype=bool)
+        mean_steps_per_p_error  = 0
+        mean_q_per_p_error      = 0
+        steps_counter           = 0
 
         for j in range(num_of_episodes):
             num_of_steps_per_episode = 0
-            prev_action = 0
-            terminal_state = 0
+            prev_action              = 0
+            terminal_state           = 0
 
             state = env.reset(p_error=p_error)
             
-            # plot one episode
+            # plot initial state
             if plot_one_episode == True and j == 0 and i == 0:
                 env.plotToricCode(state, 'initial_syndrom')
             

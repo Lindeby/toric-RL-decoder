@@ -1,0 +1,2 @@
+# p_error, ground_state_list, error_corrected_list, mean_q_list, failure_rate, asymptotic_fail, asymptotic_success, P_l, average_number_of_steps_list
+0.05,0.9159,0.99998,92.602,0.08409999999999995,17702.28799999999,-8.366711409395965,0.0007553728078117337,5.3
