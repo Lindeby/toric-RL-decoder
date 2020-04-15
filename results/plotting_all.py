@@ -49,8 +49,12 @@ p_RL_5_uncorr_biased_plot   = np.loadtxt('results/results_mats/uncorr_MWPM_5_bia
 p_RL_7_uncorr               = np.loadtxt('results/results_mats/only_x_RL_7.txt')
 p_RL_9_uncorr               = np.loadtxt('results/results_mats/only_x_RL_9.txt')
 lin_p_rl_uncorr             = np.linspace(0.05, 0.19, 8)
+
 loglog_5                    = np.loadtxt('results/results_mats/loglog_5.txt')
+loglog__dist5               = np.loadtxt('results/evaluation_size_5.txt', delimiter=',')
 loglog_7                    = np.loadtxt('results/results_mats/loglog_7.txt')
+loglog__dist7               = np.loadtxt('results/evaluation_size_7.txt', delimiter=',')
+
 
 
 ##############################################################################################################
@@ -310,13 +314,16 @@ def loglog_plot():
     plt.ylabel(r'$P_L$')
     plt.xlabel('$p$')
     ax.loglog(loglog_5[:,0], loglog_5[:,1], 'o', color = 'C0', label='RL, d=5')
-    ax.loglog(p_errors, p_l_asymptotics5, '--', color = 'C0', label='MCC, d=5')
-    ax.loglog(p_errors, p_l_asymptotics_MWPM5, ':', color = 'C0', label='MWPM, d=5')
+    ax.loglog([5e-2, 1e-2, 5e-3, 1e-3, 5e-4, 1e-4, 5e-5], loglog__dist5[:,7],    '--', color = 'C0', label='Distributed, d=5')
+    # ax.loglog(p_errors, p_l_asymptotics5, '--', color = 'C0', label='MCC, d=5')
+    # ax.loglog(p_errors, p_l_asymptotics_MWPM5, ':', color = 'C0', label='MWPM, d=5')
 
 
     ax.loglog(loglog_7[:,0], loglog_7[:,1], '^', color = 'C1', label='RL, d=7')
-    ax.loglog(p_errors, p_l_asymptotics7,  '--', color = 'C1', label='MCC, d=7')
-    ax.loglog(p_errors, p_l_asymptotics_MWPM7, ':', color = 'C1', label='MWPM, d=7')
+    ax.loglog([5e-2, 5e-3, 5e-4], loglog__dist7[:,7],    '--', color = 'C1', label='Distributed, d=5')
+
+    # ax.loglog(p_errors, p_l_asymptotics7,  '--', color = 'C1', label='MCC, d=7')
+    # ax.loglog(p_errors, p_l_asymptotics_MWPM7, ':', color = 'C1', label='MWPM, d=7')
     
     #xticks = [0.05, 0.1, 0.15, 0.19]
     #ax.set_xticks(xticks)
@@ -329,13 +336,14 @@ def loglog_plot():
 
     
     ax.legend()
-    plt.savefig('plots/loglog.pdf')
+    plt.show()
+    # plt.savefig('plots/loglog.pdf')
     plt.close()
 
 #create_surface_plot()
 #create_contour_plot()
 
 # uncorrelated_noise()
-depolarized_noise()
+# depolarized_noise()
 # bias_syndrome_generation()
-# loglog_plot()
+loglog_plot()

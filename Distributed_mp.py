@@ -10,7 +10,7 @@ import multiprocessing as mp
 from multiprocessing.sharedctypes import Array, Value
 from torch.nn.utils import parameters_to_vector
 from datetime import datetime
-import time
+import time, torch, sys
 
 could_import_tb=True
 try:
@@ -23,6 +23,10 @@ except:
 def start_distributed_mp():
 
     # Setup
+
+    # To continue training, give path to state dict
+    state_dict_path = None 
+
     
     # Learner specific
     learner_training_steps   = 1000000
@@ -30,16 +34,16 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*20 #2 hours 58min
+    learner_job_max_time     = 60*60*24 -60*10 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 10
-    learner_eval_freq        = 500 # -1 for no logging
+    learner_eval_freq        = -1 # -1 for no logging
    
     # Actor specific
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 100
-    actor_no_envs       = 100           #number of envs/actor
+    actor_no_envs       = 16           #number of envs/actor
     no_cuda_actors      = 1
     no_cpu_actors       = 0
     actor_no_actors     = no_cuda_actors + no_cpu_actors
@@ -48,7 +52,7 @@ def start_distributed_mp():
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
-    env_p_error_interval_increase = 0.001
+    env_p_error_interval_increase = 0.000001
     env_p_error_strategy          = 'random' # either {'random', 'linear'}
     
     # Replay Memory specific
@@ -63,26 +67,37 @@ def start_distributed_mp():
     log_priority_sample_interval_size   = 0.01
     
     # Shared
-    batch_size = 32
+    batch_size = 16
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":5,
+    env_config = {  "size":9,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
 
-    #model = ResNet18
-    model = NN_11
+    model = ResNet18
+    #model = NN_11
+    #model = NN_17
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": env_config["size"]
                     }
 
+    if not state_dict_path == None: 
+        checkpoint = torch.load(state_dict_path, map_location=learner_device)
+    else:
+        checkpoint = None
+
     # Pre-load initial network weights
     if model == NN_11 or model == NN_17:
-        m = model(model_config["system_size"], model_config["number_of_actions"], 'cpu')
+        m = model(model_config["system_size"], model_config["number_of_actions"], learner_device)
     else: 
         m = model()
-    params      = parameters_to_vector(m.parameters()).detach().numpy()
+
+    # load checkpoint params
+    if not state_dict_path == None: 
+        m.load_state_dict(checkpoint['model_state_dict'])
+
+    params      = parameters_to_vector(m.parameters()).detach().cpu().numpy()
     no_params   = len(params)
     
     #Comm setup 
@@ -91,11 +106,13 @@ def start_distributed_mp():
     io_learner_queue = mp.Queue()
     shared_mem_weight_id  = Value('i')
     shared_mem_weight_id.value = 0
+
+    # Write initial weights to shared memory
     shared_mem_weights    = Array('d', no_params)            # Shared memory for weights
     mem_reader = np.frombuffer(shared_mem_weights.get_obj()) # create memory reader for shared mem
     np.copyto(mem_reader, params)                            # Write params to shared mem
     
- 
+    del m # delete tmp model to load network params to free up mem
     
     """
         Learner Process
@@ -121,7 +138,8 @@ def start_distributed_mp():
         "shared_mem_weight_id"          :shared_mem_weight_id,
         "learner_eval_p_errors"         :learner_eval_p_errors,
         "learner_eval_no_episodes"      :learner_eval_no_episodes,
-        "learner_eval_freq"             :learner_eval_freq
+        "learner_eval_freq"             :learner_eval_freq,
+        "learner_checkpoint"            :checkpoint
     }
     
     
@@ -193,7 +211,13 @@ def start_distributed_mp():
         actor_process[i].start()
     
     io_process.start()
-    learner(learner_args) 
+    try:
+        learner(learner_args) 
+    except:
+        tb = SummaryWriter("runs/{}/RunInfo/".format(learner_save_date))
+        tb.add_text("RunInfo/Error_Message", sys.exc_info()[0])
+        tb.close()
+
     time.sleep(2)
     print("Training done.")
     for i in range(actor_no_actors):
