@@ -102,7 +102,8 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                                                 toric_size=env.system_size,
                                                 state=state,
                                                 model=model,
-                                                device=device)
+                                                device=device,
+                                                logging=True)
                 
                 log = open("evaluator_log.txt", "a")
                 log.write("        selectAction done\n")

@@ -6,7 +6,7 @@ from torch import from_numpy
 
 
 def selectAction(number_of_actions, epsilon, grid_shift,
-                    toric_size, state, model, device):
+                    toric_size, state, model, device, logging=False):
     """ Selects an action according to a epsilon-greedy policy.
     Params
     ======
@@ -22,12 +22,35 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     (tuple(np.array, float)) selected action and its q_value
     """
     # set network in evluation mode 
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("            selectAction:\n")
+        log.close()
     model.eval()
+
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                1\n")
+        log.close()
 
     # generate perspectives
     perspectives = generatePerspective(grid_shift, toric_size, state) 
+    
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                2\n")
+        log.close()
     #perspectives, _ = generatePerspectiveOptimized(grid_shift, toric_size, state)
     number_of_perspectives = len(perspectives)
+
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                3\n")
+        log.close()
 
     # preprocess batch of perspectives and actions
     perspectives = Perspective(*zip(*perspectives))
@@ -35,6 +58,12 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     batch_perspectives = from_numpy(batch_perspectives).type('torch.Tensor')    
     batch_perspectives = batch_perspectives.to(device)
     batch_position_actions = perspectives.position
+
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                4\n")
+        log.close()
    
     # Policy
     policy_net_output = None
@@ -42,6 +71,12 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     with torch.no_grad():
         policy_net_output = model(batch_perspectives)
         q_values_table = np.array(policy_net_output.cpu())
+
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                5\n")
+        log.close()
 
 
     #choose action using epsilon greedy approach
@@ -62,6 +97,13 @@ def selectAction(number_of_actions, epsilon, grid_shift,
                 batch_position_actions[p][2],
                 a]
     q_values = q_values_table[p]
+
+    
+    if logging: 
+        log = open("evaluator_log.txt", "a")
+        log.write("                6\n")
+        log.close()
+
     return action, q_values
 
 def generateTransition( action, 
