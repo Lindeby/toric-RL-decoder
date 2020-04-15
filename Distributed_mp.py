@@ -32,7 +32,7 @@ def start_distributed_mp():
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
-    learner_job_max_time     = 60*10  #2 hours 58min
+    learner_job_max_time     = 60*2  #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
    
     # Actor specific
@@ -65,15 +65,15 @@ def start_distributed_mp():
     batch_size = 32
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":5,
+    env_config = {  "size":3,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
 
     # Evaluator
     eval_p_errors    = [0.1, 0.15, 0.2]
-    eval_no_episodes = 20
-    eval_freq        = 10 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
+    eval_no_episodes = 10
+    eval_freq        = 20 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
     evaluator_device = 'cpu'
     #model = ResNet18
     model = NN_11

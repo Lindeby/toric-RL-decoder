@@ -65,12 +65,16 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
             write_out = "error {}:{}\n".format(p_error, j)
             log.write(write_out)
             print(write_out)
-            log.close()
+            #log.close()
             num_of_steps_per_episode = 0
             prev_action              = 0
             terminal_state           = 0
 
             state = env.reset(p_error=p_error)
+            
+            log.write("reset\n") 
+            
+            
             
             # plot initial state
             if plot_one_episode == True and j == 0 and i == 0:
@@ -78,10 +82,16 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
             
             init_qubit_state = deepcopy(env.qubit_matrix)
 
+            log.write("initial_qubit_state\n")
+            log.close()
+
             # solve syndrome
             energy_toric = []
             experimental_q_values = []
             while not terminal_state and num_of_steps_per_episode < num_of_steps:
+                log = open("evaluator_log.txt", "a")
+                log.write("    solve step: {}\n".format(num_of_steps_per_episode))
+                log.close()
                 steps_counter += 1
                 num_of_steps_per_episode += 1
                 
@@ -93,10 +103,18 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
                                                 state=state,
                                                 model=model,
                                                 device=device)
+                
+                log = open("evaluator_log.txt", "a")
+                log.write("        selectAction done\n")
+                log.close()
                 q_value = q_values[action[-1]-1]
 
                 # prev_action = action
                 next_state, reward, terminal_state, _ = env.step(action)
+                
+                log = open("evaluator_log.txt", "a")
+                log.write("        env.step done\n")
+                log.close()
                 
                 experimental_q_values.append(q_value)
                 energy_toric.append(np.sum(state) - np.sum(next_state)) 
