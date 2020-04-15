@@ -68,8 +68,19 @@ def selectAction(number_of_actions, epsilon, grid_shift,
     # Policy
     policy_net_output = None
     q_values_table = None
+    
     with torch.no_grad():
+        if logging: 
+            log = open("evaluator_log.txt", "a")
+            log.write("                    {}\n".format(batch_perspectives))
+            log.close()
+            
         policy_net_output = model(batch_perspectives)
+        
+        if logging: 
+            log = open("evaluator_log.txt", "a")
+            log.write("                4.5\n")
+            log.close()
         q_values_table = np.array(policy_net_output.cpu())
 
     
