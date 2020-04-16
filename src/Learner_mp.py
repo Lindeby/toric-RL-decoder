@@ -27,7 +27,11 @@ import time
 
 
 def learner(args):
-    start_time = time.time() 
+    start_time = time.time()
+
+    # heartbeat
+    heart = time.time()
+    heartbeat_interval = 60*5 # 10 minutes
 
     train_steps     = args["train_steps"]
     discount_factor = args["discount_factor"]
@@ -183,6 +187,13 @@ def learner(args):
                 tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], t)
                 tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], t)
                 tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
+
+        # heartbeat to see if process is alive
+        if time.time() - heart > heartbeat_interval:
+            heart = time.time()
+            tb.add_scalar("Heartbeat/Learner", 1) 
+
+
 
     # close tensorboard writer
     if eval_freq != -1 and could_import_tb:

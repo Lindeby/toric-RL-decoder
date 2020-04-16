@@ -13,6 +13,9 @@ except:
 
 
 def io(memory_args):
+
+    heart = time.time()
+    heartbeat_interval = 60*10 # 10 minutes
     
     memory_capacity             = memory_args["capacity"]
     memory_alpha                = memory_args["alpha"]
@@ -150,3 +153,8 @@ def io(memory_args):
                 if should_log and could_import_tb:
                     tb.close()
                 print("Total amount of generated transitions: ",total_amout_transitions)
+
+        if time.time() - heart > heartbeat_interval:
+            heart = time.time()
+            tb.add_scalar("Heartbeat/IO", 1) 
+

@@ -194,7 +194,7 @@ def start_distributed_mp():
 
     # log header to tensorboard
     if could_import_tb:
-        log("runs/{}/RunInfo/".format(learner_save_date), actor_args, learner_args, mem_args)
+        log("runs/{}/RunInfo/".format(learner_save_date), actor_args, learner_args, mem_args, state_dict_path)
 
     io_process = mp.Process(target=io, args=(mem_args,))
     actor_process = []    
@@ -226,8 +226,10 @@ def start_distributed_mp():
     print("Script complete.")
     
         
-def log(path, actor, learner, memory):
-    tb_setup_string = ("env_size: {}  \n"
+def log(path, actor, learner, memory, st_dict):
+    tb_setup_string = (
+                    "starting_params: {}  \n"
+                    "env_size: {}  \n"
                     "learning_rate: {}  \n"
                     "learner_update_policy: {}  \n"
                     "learner_optimizer: {}  \n"
@@ -255,7 +257,8 @@ def log(path, actor, learner, memory):
                     "log_priority_sample_max: {}  \n"             
                     "log_priority_sample_interval_size: {}  \n"
                     "batch_size: {}  \n"
-                    "discount_factor: {}  \n").format(  learner["env_config"]["size"],
+                    "discount_factor: {}  \n").format(  st_dict,
+                                                        learner["env_config"]["size"],
                                                         learner["learning_rate"],
                                                         learner["policy_update"],
                                                         learner["optimizer"],
