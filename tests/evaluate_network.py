@@ -24,7 +24,7 @@ if __name__ == "__main__":
                     }
     #model = NN_11(model_config["system_size"], 3, device)
     model = ResNet18()
-    model.load_state_dict(torch.load("runs/14_Apr_2020_19_29_11/Size_9_ResNet_14_Apr_2020_19_29_11.pt", map_location=device))
+    model.load_state_dict(torch.load("runs/14_Apr_2020_19_29_11/Size_9_ResNet_14_Apr_2020_19_29_11.pt", map_location=device)["model_state_dict"])
     model.to(device)
     model.eval()
 
