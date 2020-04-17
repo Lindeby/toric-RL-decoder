@@ -29,25 +29,26 @@ if __name__ == "__main__":
     model.eval()
 
     p_error = np.linspace(0.06, 0.2, 8, endpoint=True)
-    success_rate, ground_state_rate, average_number_of_steps_list, mean_q_list, failed_syndroms = evaluate( model,
-                                                                                                            'toric-code-v0',
-                                                                                                            env_config,
-                                                                                                            int(env_config["size"]/2),
-                                                                                                            device,
-                                                                                                            p_error,
-                                                                                                            num_of_episodes=no_episodes,
-                                                                                                            epsilon=0.0,
-                                                                                                            num_of_steps=75,
-                                                                                                            plot_one_episode=False, 
-                                                                                                            minimum_nbr_of_qubit_errors=0)
+    for p in p_error:
+        success_rate, ground_state_rate, average_number_of_steps_list, mean_q_list, failed_syndroms = evaluate( model,
+                                                                                                                'toric-code-v0',
+                                                                                                                env_config,
+                                                                                                                int(env_config["size"]/2),
+                                                                                                                device,
+                                                                                                                [p],
+                                                                                                                num_of_episodes=no_episodes,
+                                                                                                                epsilon=0.0,
+                                                                                                                num_of_steps=75,
+                                                                                                                plot_one_episode=False, 
+                                                                                                                minimum_nbr_of_qubit_errors=0)
 
-    tb = SummaryWriter(log_dir='runs/test_size_{}_steps_{}'.format(env_config["size"], no_episodes))
-    
-    for i, p in enumerate(p_error):
-        tb.add_scalar("Performance/Ground State Rate", ground_state_rate[i], p*100)
-        tb.add_scalar("Performance/Success Rate", success_rate[i], p*100)
-        tb.add_scalar("Performance/Mean Q", mean_q_list[i], p*100)
-        tb.add_scalar("Performance/Avg No Steps", average_number_of_steps_list[i], p*100)
+        tb = SummaryWriter(log_dir='runs/test_size_{}_steps_{}'.format(env_config["size"], no_episodes))
+
+        for i, p in enumerate(p_error):
+            tb.add_scalar("Performance/Ground State Rate", ground_state_rate[i], p*100)
+            tb.add_scalar("Performance/Success Rate", success_rate[i], p*100)
+            tb.add_scalar("Performance/Mean Q", mean_q_list[i], p*100)
+            tb.add_scalar("Performance/Avg No Steps", average_number_of_steps_list[i], p*100)
 
 
-    tb.close()
+        tb.close()
