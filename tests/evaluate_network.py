@@ -24,7 +24,7 @@ if __name__ == "__main__":
                     }
     #model = NN_11(model_config["system_size"], 3, device)
     model = ResNet18()
-    model.load_state_dict(torch.load("runs/14_Apr_2020_19_29_11/Size_9_ResNet_14_Apr_2020_19_29_11.pt", map_location=device)["model_state_dict"])
+    model.load_state_dict(torch.load("runs/15_Apr_2020_20_06_29/Size_9_ResNet_15_Apr_2020_20_06_29.pt", map_location=device)["model_state_dict"])
     model.to(device)
     model.eval()
 
@@ -44,11 +44,11 @@ if __name__ == "__main__":
 
         tb = SummaryWriter(log_dir='runs/test_size_{}_steps_{}'.format(env_config["size"], no_episodes))
 
-        for i, p in enumerate(p_error):
-            tb.add_scalar("Performance/Ground State Rate", ground_state_rate[i], p*100)
-            tb.add_scalar("Performance/Success Rate", success_rate[i], p*100)
-            tb.add_scalar("Performance/Mean Q", mean_q_list[i], p*100)
-            tb.add_scalar("Performance/Avg No Steps", average_number_of_steps_list[i], p*100)
+        # for i, p in enumerate(p_error):
+        tb.add_scalar("Performance/Ground State Rate", ground_state_rate[0], p*100)
+        tb.add_scalar("Performance/Success Rate", success_rate[0], p*100)
+        tb.add_scalar("Performance/Mean Q", mean_q_list[0], p*100)
+        tb.add_scalar("Performance/Avg No Steps", average_number_of_steps_list[0], p*100)
 
 
         tb.close()
