@@ -8,7 +8,8 @@ from src.util_actor import calculateEpsilon
 import torch
 
 import numpy as np
-import multiprocessing as mp
+#import multiprocessing as mp
+import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Array, Value
 from torch.nn.utils import parameters_to_vector
 from datetime import datetime
