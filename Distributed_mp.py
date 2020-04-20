@@ -52,7 +52,7 @@ def start_distributed_mp():
     epsilon_delta       = 0.005
     env_p_error_interval_start    = 0.1
     env_p_error_interval_final    = 0.3
-    env_p_error_interval_increase = 0.000001
+    env_p_error_interval_increase = 0.00005
     env_p_error_strategy          = 'random' # either {'random', 'linear'}
     
     # Replay Memory specific
