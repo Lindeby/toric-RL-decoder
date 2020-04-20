@@ -28,9 +28,9 @@ def start_distributed_mp():
     # Setup
 
     # Learner specific
-    learner_training_steps   = 1000000
+    learner_training_steps   = 1000
     learner_learning_rate    = 0.00025
-    learner_policy_update    = 50
+    learner_policy_update    = 25
     learner_optimizer        = 'Adam'
     learner_device           = 'cuda'
     learner_job_max_time     = 60*2  #2 hours 58min
@@ -55,7 +55,7 @@ def start_distributed_mp():
     replay_memory_size                  = 1000000
     replay_memory_alpha                 = 0.6
     replay_memory_beta                  = 0.4
-    replay_memory_size_before_sampeling = 5000#replay_memory_size*0.05
+    replay_memory_size_before_sampeling = 50#replay_memory_size*0.05
     replay_memory_batch_in_queue_limit  = 10 #number of batches in queue to learner
     log_priority_dist                   = True
     log_write_frequency                 = 500
@@ -76,6 +76,8 @@ def start_distributed_mp():
     eval_no_episodes = 10
     eval_freq        = 20 # -1 for no logging. evaluate every eval_feq * learner_policy_update 
     evaluator_device = 'cpu'
+    
+    # model
     #model = ResNet18
     model = NN_11
     model_config = {"system_size": env_config["size"],

@@ -19,8 +19,6 @@ import gym
 
 def evaluator(args):
     
-
-    
     NN              = args["model"]
     model_no_params = args["model_no_params"]
     if NN == NN_11 or NN == NN_17:
@@ -28,8 +26,6 @@ def evaluator(args):
         model = NN(NN_config["system_size"], NN_config["number_of_actions"], args["device"])
     else:
         model = NN()
-
-    log = open("evaluator_log.txt","a")
 
     device = args["device"]
     
@@ -39,7 +35,7 @@ def evaluator(args):
     eval_freq           = args["eval_freq"]
     count_to_eval       = 0
 
-    save_date           = args["save_date"]
+    save_date       = args["save_date"]
     env_config      = args["env_config"]
     system_size     = env_config["size"]
     
@@ -48,18 +44,12 @@ def evaluator(args):
     current_weight_id      = 0
     policy_update          = args["policy_update"]
     
-    write_out = "evaluator started on device: {}\n".format(device)
-    print(write_out)
-    log.write(write_out)
-    log.close()
-    
+    log("evaluator_log.txt", "a", "evaluator started on device: {}\n".format(device))
+
     if eval_freq != -1 and could_import_tb:
         tb = SummaryWriter("runs/{}/Evaluator/".format(save_date))
         
-        log = open("evaluator_log.txt","a")
-        write_out = "logging = True \n"
-        log.write(write_out)
-        log.close()
+        log("evaluator_log.txt", "a", "logging = True \n")
 
         # load initial network weights
         weights = np.empty(model_no_params)
@@ -73,9 +63,7 @@ def evaluator(args):
         
         new_weights = False
 
-        while True:
-            
-            
+        while True:        
             with shared_mem_weights.get_lock():
                 if (current_weight_id + eval_freq) < shared_mem_weight_id.value:
                     reader = np.frombuffer(shared_mem_weights.get_obj())
@@ -85,19 +73,12 @@ def evaluator(args):
              
             if new_weights == False:
                 time.sleep(1)
-                    
-            
-            # Evaluate network
-            if new_weights:
+            else: # Evaluate network
                 new_weights = False
                 learning_step = current_weight_id * policy_update
                 vector_to_parameters(from_numpy(weights).type(torch.FloatTensor).to(device), model.parameters())
                 
-                log = open("evaluator_log.txt","a")
-                write_out = "start evaluat of network_id: {}\n".format(current_weight_id)
-                print(write_out)
-                log.write(write_out)
-                log.close()
+                log("evaluator_log.txt", "a", "start evaluat of network_id: {}\n".format(current_weight_id))
 
                 success_rate, ground_state_rate, _, mean_q_list, _ = evaluate(  model,
                                                                                 'toric-code-v0',
@@ -114,3 +95,8 @@ def evaluator(args):
                     tb.add_scalar("Network/Mean Q, p error {}".format(p), mean_q_list[i], learning_step)
                     tb.add_scalar("Network/Success Rate, p error {}".format(p), success_rate[i], learning_step)
                     tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], learning_step)
+
+def log(path, mode, string):
+    with open(path, mode) as f:
+        f.write(string)
+

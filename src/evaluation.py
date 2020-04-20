@@ -75,7 +75,6 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
             log.write("reset\n") 
             
             
-            
             # plot initial state
             if plot_one_episode == True and j == 0 and i == 0:
                 env.plotToricCode(state, 'initial_syndrom')
@@ -144,7 +143,6 @@ def evaluate(model, env, env_config, grid_shift, device, prediction_list_p_error
         ground_state_list[i] =  1 - (num_of_episodes - np.sum(ground_state)) / num_of_episodes
         average_number_of_steps_list[i] = np.round(mean_steps_per_p_error, 1)
         mean_q_list[i] = np.round(mean_q_per_p_error, 3)
-
     return error_corrected_list, ground_state_list, average_number_of_steps_list, mean_q_list, failed_syndroms
 
 
