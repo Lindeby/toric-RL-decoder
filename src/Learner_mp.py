@@ -50,7 +50,8 @@ def learner(args):
     eval_no_episodes    = args["learner_eval_no_episodes"]
     eval_freq           = args["learner_eval_freq"]
     count_to_eval       = 0
-    if eval_freq != -1 and could_import_tb:
+    
+    if could_import_tb:
         tb = SummaryWriter("runs/{}/Learner/".format(save_date))
 
     # Comms
@@ -189,7 +190,7 @@ def learner(args):
                 tb.add_scalar("Network/Ground State Rate, p error {}".format(p), ground_state_rate[i], t)
 
         # heartbeat to see if process is alive
-        if time.time() - heart > heartbeat_interval:
+        if could_import_tb and time.time() - heart > heartbeat_interval:
             heart = time.time()
             tb.add_scalar("Heartbeat/Learner", 1) 
 
