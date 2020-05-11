@@ -14,6 +14,8 @@ except:
 
 def io(memory_args):
 
+   
+
     heart = time.time()
     heartbeat_interval = 60*10 # 10 minutes
     
@@ -39,7 +41,7 @@ def io(memory_args):
         samples_learner = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
 
         tb = SummaryWriter(tb_write_dir)
-        tb_nvidia_log_freq = 10 #seconds
+        tb_nvidia_log_freq = 5 #seconds
 
 
     replay_memory = PrioritizedReplayMemory(memory_capacity, memory_alpha)
@@ -89,25 +91,32 @@ def io(memory_args):
                 
             if should_log and nvidia_log_time + tb_nvidia_log_freq < time.time():
                 nvidia_log_time = time.time() 
-                gpu_info = nvgpu.gpu_info()
-                for i in gpu_info:
+                #gpu_info = nvgpu.gpu_info()
+                #for i in gpu_info:
             
-                    gpu = '{} {}'.format(i['type'], i['index'])
-                    mem_total = i['mem_total']
-                    mem_used = i['mem_used'] 
-                    tb.add_scalars(gpu, {'mem_total':mem_total,
-                                           'mem_used':mem_used})
+                #    gpu = '{} {}'.format(i['type'], i['index'])
+                #    mem_total = i['mem_total']
+                #    mem_used = i['mem_used'] 
+                #    tb.add_scalars(gpu, {'mem_total':mem_total,
+                #                           'mem_used':mem_used})
 
                 count_total_gen_trans  += count_gen_trans
                 count_total_cons_trans += count_cons_trans
                 t = time.time()
-                tb.add_scalars("Data/total/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
-                tb.add_scalars("Data/speed/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
-                tb.add_histogram("Distribution/Actor Distribution", samples_actor)
-                tb.add_histogram("Distribution/Learner Distribution", samples_learner)
+                #tb.add_scalars("Data/total/", {"Total Consumption":count_total_cons_trans, "Total Generation":count_total_gen_trans})
+                #tb.add_scalars("Data/speed/", {"Consumption per Second":count_cons_trans/(t-stop_watch), "Generation per Second":count_gen_trans/(t-stop_watch)})
+                #tb.add_histogram("Distribution/Actor Distribution", samples_actor)
+                #tb.add_histogram("Distribution/Learner Distribution", samples_learner)
+               
+                consumption =  count_cons_trans/(t-stop_watch)
+                generation = count_gen_trans/(t-stop_watch)
+                print("Consuption per Second ", consumption)
+                print("Generation per Second ", generation)
+                f = open("speed.txt","a")
+                f.write("Consumption per Second: "+str(consumption)+"\n")
+                f.write("Generation per Second: "+str(generation)+"\n")
+                f.close()
                 
-                print("Consuption per Second ", count_cons_trans/(t-stop_watch))
-                print("Generation per Second ", count_gen_trans/(t-stop_watch))
                 stop_watch = time.time()
                 samples_actor    = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))
                 samples_learner  = np.zeros(int(tb_priority_sample_max/tb_priority_sample_interval_size))

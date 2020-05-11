@@ -33,8 +33,8 @@ def start_distributed_mp():
     learner_learning_rate    = 0.00025
     learner_policy_update    = 50
     learner_optimizer        = 'Adam'
-    learner_device           = 'cuda'
-    learner_job_max_time     = 60*60*24 -60*10 #2 hours 58min
+    learner_device           = 'cpu'
+    learner_job_max_time     = 60*3 #2 hours 58min
     learner_save_date        = datetime.now().strftime("%d_%b_%Y_%H_%M_%S")
     learner_eval_p_errors    = [0.1, 0.2, 0.3]
     learner_eval_no_episodes = 10
@@ -43,9 +43,9 @@ def start_distributed_mp():
     # Actor specific
     actor_max_actions_per_episode  = 75
     actor_size_local_memory_buffer = 100
-    actor_no_envs       = 16           #number of envs/actor
-    no_cuda_actors      = 1
-    no_cpu_actors       = 0
+    actor_no_envs       = 100           #number of envs/actor
+    no_cuda_actors      = 0
+    no_cpu_actors       = 1
     actor_no_actors     = no_cuda_actors + no_cpu_actors
     #epsilon             = calculateEpsilon(0.8, 7, actor_no_actors * actor_no_envs)
     epsilon             = calculateEpsilon(0.8, 7, actor_no_envs)
@@ -59,7 +59,7 @@ def start_distributed_mp():
     replay_memory_size                  = 1000000
     replay_memory_alpha                 = 0.6
     replay_memory_beta                  = 0.4
-    replay_memory_size_before_sampeling = 5000#replay_memory_size*0.05
+    replay_memory_size_before_sampeling = 1000000000#replay_memory_size*0.05
     replay_memory_batch_in_queue_limit  = 10 #number of batches in queue to learner
     log_priority_dist                   = True
     log_write_frequency                 = 500
@@ -67,21 +67,27 @@ def start_distributed_mp():
     log_priority_sample_interval_size   = 0.01
     
     # Shared
-    batch_size = 16
+    batch_size = 2
     discount_factor = 0.95
     env = "toric-code-v0"
-    env_config = {  "size":9,
+    env_config = {  "size":3,
                     "min_qubit_errors": 0,
                     "p_error": 0.1
             }
 
-    model = ResNet18
-    #model = NN_11
+    #model = ResNet18
+    model = NN_11
     #model = NN_17
     model_config = {"system_size": env_config["size"],
                     "number_of_actions": env_config["size"]
                     }
 
+    f = open("speed.txt", "a")
+    f.write("-----------------\n")
+    f.write("NN_11\n")
+    f.write("actor_no_envs: "+str(actor_no_envs)+"\n")
+    f.write("no_cpu_actors: "+str(no_cpu_actors)+"\n")
+    f.close() 
     if not state_dict_path == None: 
         checkpoint = torch.load(state_dict_path, map_location=learner_device)
     else:
